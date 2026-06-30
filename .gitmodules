@@ -1,0 +1,3 @@
+[submodule "tools/3DCodexPipeline"]
+	path = tools/3DCodexPipeline
+	url = https://github.com/PhiliXiR/3DCodexPipeline.git
