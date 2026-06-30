@@ -4,6 +4,8 @@ extends Node3D
 @export var camera_path: NodePath
 @export var target_marker_path: NodePath
 @export var lure_marker_path: NodePath
+@export var rod_tip_path: NodePath
+@export var fishing_line_path: NodePath
 @export var water_center := Vector3(0.0, 0.0, 10.0)
 @export var water_size := Vector2(28.0, 16.0)
 @export var cast_distance := 8.0
@@ -15,6 +17,8 @@ extends Node3D
 @onready var camera: Node = get_node_or_null(camera_path)
 @onready var target_marker: Node3D = get_node_or_null(target_marker_path) as Node3D
 @onready var lure_marker: MeshInstance3D = get_node_or_null(lure_marker_path) as MeshInstance3D
+@onready var rod_tip: Node3D = get_node_or_null(rod_tip_path) as Node3D
+@onready var fishing_line: MeshInstance3D = get_node_or_null(fishing_line_path) as MeshInstance3D
 
 var target_point := Vector3.ZERO
 var target_valid := false
@@ -25,22 +29,44 @@ var last_landing_label := "No cast yet"
 var _valid_material := StandardMaterial3D.new()
 var _invalid_material := StandardMaterial3D.new()
 var _lure_material := StandardMaterial3D.new()
+var _line_valid_material := StandardMaterial3D.new()
+var _line_invalid_material := StandardMaterial3D.new()
+var _cast_line_locked_to_lure := false
+var _last_line_start := Vector3.ZERO
+var _last_line_end := Vector3.ZERO
+var _last_line_valid := false
 
 
 func _ready() -> void:
 	_valid_material.albedo_color = Color(0.25, 0.9, 0.55, 0.85)
 	_invalid_material.albedo_color = Color(1.0, 0.25, 0.2, 0.85)
 	_lure_material.albedo_color = Color(1.0, 0.88, 0.3, 1.0)
+	_line_valid_material.albedo_color = Color(0.25, 0.95, 0.55, 1.0)
+	_line_invalid_material.albedo_color = Color(1.0, 0.25, 0.2, 1.0)
 	_configure_marker_material(_valid_material, Color(0.25, 1.0, 0.55, 1.0))
 	_configure_marker_material(_invalid_material, Color(1.0, 0.2, 0.1, 1.0))
 	_configure_marker_material(_lure_material, Color(1.0, 0.88, 0.25, 1.0))
+	_configure_marker_material(_line_valid_material, Color(0.25, 1.0, 0.55, 1.0))
+	_configure_marker_material(_line_invalid_material, Color(1.0, 0.2, 0.1, 1.0))
 	if lure_marker != null:
 		lure_marker.visible = false
 		lure_marker.material_override = _lure_material
+	if fishing_line != null:
+		var line_mesh := CylinderMesh.new()
+		line_mesh.top_radius = 0.018
+		line_mesh.bottom_radius = 0.018
+		line_mesh.height = 1.0
+		fishing_line.mesh = line_mesh
+		fishing_line.visible = false
 
 
 func _process(_delta: float) -> void:
+	refresh_casting_visuals()
+
+
+func refresh_casting_visuals() -> void:
 	_update_cast_target()
+	_update_fishing_line()
 
 
 func can_start_cast() -> bool:
@@ -77,6 +103,20 @@ func get_spatial_feedback() -> String:
 
 func get_result_context() -> String:
 	return "Landing quality: %s" % last_landing_label
+
+
+func get_rod_tip_position() -> Vector3:
+	if rod_tip == null:
+		return Vector3.ZERO
+	return rod_tip.global_position
+
+
+func get_line_endpoint() -> Vector3:
+	return _last_line_end
+
+
+func is_line_showing_valid_feedback() -> bool:
+	return _last_line_valid
 
 
 func _update_cast_target() -> void:
@@ -151,11 +191,52 @@ func _animate_lure() -> void:
 	if lure_marker == null or player == null:
 		return
 
+	_cast_line_locked_to_lure = true
 	lure_marker.visible = true
-	lure_marker.global_position = player.global_position + Vector3.UP * 1.2
+	lure_marker.global_position = get_rod_tip_position()
 	lure_marker.material_override = _lure_material
 	var tween := create_tween()
 	tween.tween_property(lure_marker, "global_position", target_point + Vector3.UP * 0.12, 0.45)
+
+
+func _update_fishing_line() -> void:
+	if fishing_line == null or rod_tip == null:
+		return
+
+	var line_start := rod_tip.global_position
+	var line_end := target_point + Vector3.UP * 0.12
+	if _cast_line_locked_to_lure and lure_marker != null:
+		line_end = lure_marker.global_position
+
+	var line_valid := target_valid and player_near_water
+	_draw_line_segment(line_start, line_end, line_valid)
+
+
+func _draw_line_segment(line_start: Vector3, line_end: Vector3, line_valid: bool) -> void:
+	var length := line_start.distance_to(line_end)
+	if length <= 0.01:
+		fishing_line.visible = false
+		return
+
+	var direction := (line_end - line_start).normalized()
+	var midpoint := line_start.lerp(line_end, 0.5)
+	fishing_line.visible = true
+	fishing_line.global_transform = Transform3D(_basis_from_y_axis(direction), midpoint)
+	fishing_line.scale = Vector3(1.0, length, 1.0)
+	fishing_line.material_override = _line_valid_material if line_valid else _line_invalid_material
+	_last_line_start = line_start
+	_last_line_end = line_end
+	_last_line_valid = line_valid
+
+
+func _basis_from_y_axis(y_axis: Vector3) -> Basis:
+	var up := y_axis.normalized()
+	var side := Vector3.FORWARD.cross(up)
+	if side.length_squared() <= 0.0001:
+		side = Vector3.RIGHT.cross(up)
+	side = side.normalized()
+	var forward := up.cross(side).normalized()
+	return Basis(side, up, forward)
 
 
 func _configure_marker_material(material: StandardMaterial3D, color: Color) -> void:

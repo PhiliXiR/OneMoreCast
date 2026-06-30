@@ -118,12 +118,17 @@ mesh = SubResource("SphereMesh_target_top")
 visible = false
 mesh = SubResource("SphereMesh_lure")
 
+[node name="FishingLine" type="MeshInstance3D" parent="."]
+visible = false
+
 [node name="SpatialCasting" type="Node3D" parent="."]
 script = ExtResource("4_spatial")
 player_path = NodePath("../PlayerRig")
 camera_path = NodePath("../MMOCameraRig")
 target_marker_path = NodePath("../CastTargetMarker")
 lure_marker_path = NodePath("../LureMarker")
+rod_tip_path = NodePath("../PlayerRig/VisualRoot/RodRoot/RodTip")
+fishing_line_path = NodePath("../FishingLine")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 7, -3)

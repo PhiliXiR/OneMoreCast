@@ -40,6 +40,14 @@ func _run_validation() -> void:
 		return
 	if not _require_node(world, "LureMarker"):
 		return
+	if not _require_node(world, "FishingLine"):
+		return
+	if not _require_node(world, "PlayerRig/VisualRoot/RodRoot"):
+		return
+	if not _require_node(world, "PlayerRig/VisualRoot/RodRoot/RodMesh"):
+		return
+	if not _require_node(world, "PlayerRig/VisualRoot/RodRoot/RodTip"):
+		return
 	if not _require_node(world, "CastingUILayer/CastingUI"):
 		return
 	if not _validate_casting_hud(world.get_node("CastingUILayer/CastingUI")):
@@ -60,6 +68,8 @@ func _run_validation() -> void:
 		_fail("MMOCameraRig is not using the pipeline camera controller")
 		return
 	if not _validate_camera_input(camera):
+		return
+	if not await _validate_rod_and_line(world):
 		return
 	if not _validate_spatial_casting(world.get_node("SpatialCasting")):
 		return
@@ -122,6 +132,10 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"get_spatial_feedback",
 		"get_result_context",
 		"get_target_point",
+		"get_rod_tip_position",
+		"get_line_endpoint",
+		"is_line_showing_valid_feedback",
+		"refresh_casting_visuals",
 	]:
 		if not spatial_casting.has_method(method):
 			_fail("Spatial casting provider is missing %s" % method)
@@ -150,6 +164,64 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 	var quality: float = spatial_casting.call("get_landing_quality") as float
 	if quality <= 0.0:
 		_fail("Valid spatial cast did not produce landing quality")
+		return false
+
+	return true
+
+
+func _validate_rod_and_line(world: Node) -> bool:
+	var spatial_casting := world.get_node("SpatialCasting")
+	var rod_mesh := world.get_node("PlayerRig/VisualRoot/RodRoot/RodMesh") as MeshInstance3D
+	var rod_tip := world.get_node("PlayerRig/VisualRoot/RodRoot/RodTip") as Node3D
+	var fishing_line := world.get_node("FishingLine") as MeshInstance3D
+	if not rod_mesh.visible:
+		_fail("Fishing rod mesh should be visible")
+		return false
+	if rod_tip.global_position.distance_to(world.get_node("PlayerRig").global_position) < 1.0:
+		_fail("Fishing rod tip should be out in front of the player")
+		return false
+
+	spatial_casting.call("refresh_casting_visuals")
+	await process_frame
+	if not fishing_line.visible:
+		_fail("Fishing line should preview the cast target")
+		return false
+
+	var target_point: Vector3 = spatial_casting.call("get_target_point") as Vector3
+	var line_endpoint: Vector3 = spatial_casting.call("get_line_endpoint") as Vector3
+	if line_endpoint.distance_to(target_point + Vector3.UP * 0.12) > 0.1:
+		_fail("Fishing line endpoint should preview the cast target")
+		return false
+	if not (spatial_casting.call("is_line_showing_valid_feedback") as bool):
+		_fail("Fishing line should show valid feedback for the initial cast target")
+		return false
+
+	var original_water_center: Vector3 = spatial_casting.get("water_center") as Vector3
+	spatial_casting.set("water_center", Vector3(100.0, original_water_center.y, 100.0))
+	spatial_casting.call("refresh_casting_visuals")
+	await process_frame
+	if spatial_casting.call("is_line_showing_valid_feedback") as bool:
+		_fail("Fishing line should show invalid feedback when the target is off water")
+		return false
+	spatial_casting.set("water_center", original_water_center)
+	spatial_casting.call("refresh_casting_visuals")
+	await process_frame
+
+	spatial_casting.call("begin_cast")
+	await process_frame
+	spatial_casting.call("refresh_casting_visuals")
+	line_endpoint = spatial_casting.call("get_line_endpoint") as Vector3
+	var lure_marker := world.get_node("LureMarker") as MeshInstance3D
+	if line_endpoint.distance_to(lure_marker.global_position) > 0.1:
+		_fail(
+			"Fishing line should follow the lure during cast animation. Endpoint=%s lure=%s locked=%s visible=%s"
+			% [
+				line_endpoint,
+				lure_marker.global_position,
+				spatial_casting.get("_cast_line_locked_to_lure"),
+				lure_marker.visible,
+			]
+		)
 		return false
 
 	return true

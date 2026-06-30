@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://one_more_cast_player_rig"]
+[gd_scene load_steps=8 format=3 uid="uid://one_more_cast_player_rig"]
 
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/character/scripts/character_movement_controller.gd" id="1_movement"]
 
@@ -16,6 +16,12 @@ albedo_color = Color(0.24, 0.52, 0.72, 1)
 [sub_resource type="SphereMesh" id="SphereMesh_forward_marker"]
 radius = 0.12
 height = 0.24
+
+[sub_resource type="BoxMesh" id="BoxMesh_fishing_rod"]
+size = Vector3(0.06, 0.06, 2.4)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fishing_rod"]
+albedo_color = Color(0.18, 0.12, 0.07, 1)
 
 [node name="PlayerRig" type="CharacterBody3D"]
 script = ExtResource("1_movement")
@@ -36,3 +42,16 @@ surface_material_override/0 = SubResource("StandardMaterial3D_player")
 position = Vector3(0, 1.35, -0.48)
 mesh = SubResource("SphereMesh_forward_marker")
 surface_material_override/0 = SubResource("StandardMaterial3D_player")
+
+[node name="RodRoot" type="Node3D" parent="VisualRoot"]
+position = Vector3(0.42, 1.25, -0.35)
+rotation = Vector3(-0.261799, 0.0872665, 0.0872665)
+
+[node name="RodMesh" type="MeshInstance3D" parent="VisualRoot/RodRoot"]
+position = Vector3(0, 0.18, -1.05)
+rotation = Vector3(0.174533, 0, 0)
+mesh = SubResource("BoxMesh_fishing_rod")
+surface_material_override/0 = SubResource("StandardMaterial3D_fishing_rod")
+
+[node name="RodTip" type="Marker3D" parent="VisualRoot/RodRoot"]
+position = Vector3(0, 0.39, -2.22)
