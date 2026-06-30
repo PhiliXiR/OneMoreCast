@@ -24,10 +24,14 @@ const FISH_TABLE := [
 	{"name": "Old Boot Bass", "weight": 1.9},
 ]
 
+@export var spatial_casting_provider_path: NodePath
+
 @onready var state_label: Label = $ActionPanel/Layout/StateLabel
+@onready var spatial_label: Label = $ActionPanel/Layout/SpatialLabel
 @onready var message_label: Label = $ActionPanel/Layout/MessageLabel
 @onready var cast_button: Button = $ActionPanel/Layout/CastButton
 @onready var result_label: Label = $ActionPanel/Layout/ResultLabel
+@onready var quality_label: Label = $ActionPanel/Layout/QualityLabel
 @onready var inventory_label: Label = $LogPanel/Layout/InventoryLabel
 @onready var journal_label: Label = $LogPanel/Layout/JournalLabel
 
@@ -36,16 +40,26 @@ var cast_count := 0
 var inventory := {}
 var journal: Array[String] = []
 var rng := RandomNumberGenerator.new()
+var spatial_casting_provider: Node
 
 
 func _ready() -> void:
 	rng.randomize()
+	spatial_casting_provider = get_node_or_null(spatial_casting_provider_path)
 	cast_button.pressed.connect(_on_cast_pressed)
 	_update_view("The water is quiet. Make the first cast.")
 
 
+func _process(_delta: float) -> void:
+	_update_spatial_view()
+
+
 func _on_cast_pressed() -> void:
 	if state != CastState.READY:
+		return
+
+	if not _can_start_spatial_cast():
+		_update_view(_get_spatial_block_reason())
 		return
 
 	cast_count += 1
@@ -55,6 +69,7 @@ func _on_cast_pressed() -> void:
 
 
 func _run_cast_sequence() -> void:
+	_begin_spatial_cast()
 	await _advance(CastState.CASTING, "You send the lure arcing over the water.", 0.45)
 	await _advance(CastState.WAITING, "The line settles. Something might be watching.", 0.75)
 	await _advance(CastState.BITE, "A sharp tug snaps through the rod.", 0.45)
@@ -76,22 +91,31 @@ func _advance(next_state: CastState, message: String, duration: float) -> void:
 
 
 func _resolve_cast() -> String:
-	var caught_fish := rng.randf() < 0.65
+	var landing_quality := _get_landing_quality()
+	var catch_chance := lerpf(0.25, 0.85, landing_quality)
+	var caught_fish := rng.randf() < catch_chance
 	if not caught_fish:
-		var empty_message := "Cast %d: empty water." % cast_count
+		var empty_message := "Cast %d: empty water (%s)." % [cast_count, _get_result_context()]
 		_record_journal(empty_message)
 		result_label.text = "Latest result: nothing hooked"
-		return "The lure comes back clean. Nothing this time."
+		quality_label.text = _get_result_context()
+		return "The lure comes back clean. %s." % _get_result_context()
 
 	var fish: Dictionary = FISH_TABLE[rng.randi_range(0, FISH_TABLE.size() - 1)]
 	var fish_name: String = fish["name"]
 	var fish_weight: float = fish["weight"]
 
 	inventory[fish_name] = inventory.get(fish_name, 0) + 1
-	var journal_entry := "Cast %d: caught %s (%.1f lb)." % [cast_count, fish_name, fish_weight]
+	var journal_entry := "Cast %d: caught %s (%.1f lb, %s)." % [
+		cast_count,
+		fish_name,
+		fish_weight,
+		_get_result_context(),
+	]
 	_record_journal(journal_entry)
 	result_label.text = "Latest result: %s, %.1f lb" % [fish_name, fish_weight]
-	return "You land a %s. The bucket gets a little livelier." % fish_name
+	quality_label.text = _get_result_context()
+	return "You land a %s. %s." % [fish_name, _get_result_context()]
 
 
 func _record_journal(entry: String) -> void:
@@ -103,8 +127,47 @@ func _record_journal(entry: String) -> void:
 func _update_view(message: String) -> void:
 	state_label.text = "State: %s" % STATE_NAMES[state]
 	message_label.text = message
+	_update_spatial_view()
 	inventory_label.text = _format_inventory()
 	journal_label.text = _format_journal()
+
+
+func _can_start_spatial_cast() -> bool:
+	if spatial_casting_provider == null:
+		return true
+	if not spatial_casting_provider.has_method("can_start_cast"):
+		return true
+	return spatial_casting_provider.call("can_start_cast") as bool
+
+
+func _get_spatial_block_reason() -> String:
+	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_cast_block_reason"):
+		return spatial_casting_provider.call("get_cast_block_reason") as String
+	return "Cannot cast from here."
+
+
+func _begin_spatial_cast() -> void:
+	if spatial_casting_provider != null and spatial_casting_provider.has_method("begin_cast"):
+		spatial_casting_provider.call("begin_cast")
+
+
+func _get_landing_quality() -> float:
+	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_landing_quality"):
+		return spatial_casting_provider.call("get_landing_quality") as float
+	return 0.65
+
+
+func _get_result_context() -> String:
+	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_result_context"):
+		return spatial_casting_provider.call("get_result_context") as String
+	return "Landing quality: baseline"
+
+
+func _update_spatial_view() -> void:
+	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_spatial_feedback"):
+		spatial_label.text = spatial_casting_provider.call("get_spatial_feedback") as String
+	else:
+		spatial_label.text = "Spatial: standalone cast mode"
 
 
 func _format_inventory() -> String:

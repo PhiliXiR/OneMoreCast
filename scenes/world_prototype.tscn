@@ -1,8 +1,9 @@
-[gd_scene load_steps=13 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=18 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
 [ext_resource type="PackedScene" path="res://scenes/main.tscn" id="3_casting_ui"]
+[ext_resource type="Script" path="res://scripts/spatial_casting_controller.gd" id="4_spatial"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_ground"]
 size = Vector3(24, 0.2, 18)
@@ -27,6 +28,18 @@ size = Vector2(28, 16)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_water"]
 albedo_color = Color(0.08, 0.28, 0.38, 0.82)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_water_zone"]
+size = Vector3(28, 1, 16)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_target"]
+top_radius = 0.45
+bottom_radius = 0.45
+height = 0.04
+
+[sub_resource type="SphereMesh" id="SphereMesh_lure"]
+radius = 0.12
+height = 0.24
 
 [node name="WorldPrototype" type="Node3D"]
 
@@ -72,6 +85,27 @@ position = Vector3(0, -0.02, 10)
 mesh = SubResource("PlaneMesh_water")
 surface_material_override/0 = SubResource("StandardMaterial3D_water")
 
+[node name="WaterZone" type="Area3D" parent="."]
+position = Vector3(0, 0.35, 10)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WaterZone"]
+shape = SubResource("BoxShape3D_water_zone")
+
+[node name="CastTargetMarker" type="MeshInstance3D" parent="."]
+visible = false
+mesh = SubResource("CylinderMesh_target")
+
+[node name="LureMarker" type="MeshInstance3D" parent="."]
+visible = false
+mesh = SubResource("SphereMesh_lure")
+
+[node name="SpatialCasting" type="Node3D" parent="."]
+script = ExtResource("4_spatial")
+player_path = NodePath("../PlayerRig")
+camera_path = NodePath("../MMOCameraRig")
+target_marker_path = NodePath("../CastTargetMarker")
+lure_marker_path = NodePath("../LureMarker")
+
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 7, -3)
 light_energy = 2.2
@@ -79,3 +113,4 @@ light_energy = 2.2
 [node name="CastingUILayer" type="CanvasLayer" parent="."]
 
 [node name="CastingUI" parent="CastingUILayer" instance=ExtResource("3_casting_ui")]
+spatial_casting_provider_path = NodePath("../../SpatialCasting")

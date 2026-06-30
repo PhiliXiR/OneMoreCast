@@ -54,6 +54,13 @@ text = "State: ready"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 20
 
+[node name="SpatialLabel" type="Label" parent="ActionPanel/Layout"]
+layout_mode = 2
+mouse_filter = 2
+text = "Spatial: standalone cast mode"
+horizontal_alignment = 1
+autowrap_mode = 3
+
 [node name="MessageLabel" type="Label" parent="ActionPanel/Layout"]
 layout_mode = 2
 mouse_filter = 2
@@ -71,6 +78,13 @@ text = "Cast"
 layout_mode = 2
 mouse_filter = 2
 text = "Latest result: none"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="QualityLabel" type="Label" parent="ActionPanel/Layout"]
+layout_mode = 2
+mouse_filter = 2
+text = "Landing quality: n/a"
 horizontal_alignment = 1
 autowrap_mode = 3
 

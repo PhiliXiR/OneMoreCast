@@ -26,6 +26,14 @@ func _run_validation() -> void:
 		return
 	if not _require_node(world, "MMOCameraRig"):
 		return
+	if not _require_node(world, "SpatialCasting"):
+		return
+	if not _require_node(world, "WaterZone"):
+		return
+	if not _require_node(world, "CastTargetMarker"):
+		return
+	if not _require_node(world, "LureMarker"):
+		return
 	if not _require_node(world, "CastingUILayer/CastingUI"):
 		return
 	if not _validate_casting_hud(world.get_node("CastingUILayer/CastingUI")):
@@ -46,6 +54,8 @@ func _run_validation() -> void:
 		_fail("MMOCameraRig is not using the pipeline camera controller")
 		return
 	if not _validate_camera_input(camera):
+		return
+	if not _validate_spatial_casting(world.get_node("SpatialCasting")):
 		return
 
 	print("3D prototype validation passed")
@@ -79,6 +89,8 @@ func _validate_casting_hud(casting_ui: Node) -> bool:
 	for path in [
 		"ActionPanel",
 		"ActionPanel/Layout",
+		"ActionPanel/Layout/SpatialLabel",
+		"ActionPanel/Layout/QualityLabel",
 		"LogPanel",
 		"LogPanel/Layout",
 	]:
@@ -89,6 +101,37 @@ func _validate_casting_hud(casting_ui: Node) -> bool:
 		if control.mouse_filter == Control.MOUSE_FILTER_STOP:
 			_fail("%s should not stop camera mouse input" % path)
 			return false
+
+	return true
+
+
+func _validate_spatial_casting(spatial_casting: Node) -> bool:
+	for method in [
+		"can_start_cast",
+		"get_cast_block_reason",
+		"begin_cast",
+		"get_landing_quality",
+		"get_spatial_feedback",
+		"get_result_context",
+	]:
+		if not spatial_casting.has_method(method):
+			_fail("Spatial casting provider is missing %s" % method)
+			return false
+
+	var feedback: String = spatial_casting.call("get_spatial_feedback") as String
+	if not feedback.contains("Spatial:"):
+		_fail("Spatial casting feedback is not HUD-ready")
+		return false
+
+	if not (spatial_casting.call("can_start_cast") as bool):
+		_fail("Initial prototype spawn should have a valid spatial cast")
+		return false
+
+	spatial_casting.call("begin_cast")
+	var quality: float = spatial_casting.call("get_landing_quality") as float
+	if quality <= 0.0:
+		_fail("Valid spatial cast did not produce landing quality")
+		return false
 
 	return true
 
