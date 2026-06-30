@@ -24,12 +24,12 @@ const FISH_TABLE := [
 	{"name": "Old Boot Bass", "weight": 1.9},
 ]
 
-@onready var state_label: Label = $Panel/Layout/StateLabel
-@onready var message_label: Label = $Panel/Layout/MessageLabel
-@onready var cast_button: Button = $Panel/Layout/CastButton
-@onready var result_label: Label = $Panel/Layout/ResultLabel
-@onready var inventory_label: Label = $Panel/Layout/InventoryLabel
-@onready var journal_label: Label = $Panel/Layout/JournalLabel
+@onready var state_label: Label = $ActionPanel/Layout/StateLabel
+@onready var message_label: Label = $ActionPanel/Layout/MessageLabel
+@onready var cast_button: Button = $ActionPanel/Layout/CastButton
+@onready var result_label: Label = $ActionPanel/Layout/ResultLabel
+@onready var inventory_label: Label = $LogPanel/Layout/InventoryLabel
+@onready var journal_label: Label = $LogPanel/Layout/JournalLabel
 
 var state := CastState.READY
 var cast_count := 0

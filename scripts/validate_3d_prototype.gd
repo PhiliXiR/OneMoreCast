@@ -9,7 +9,11 @@ const INPUT_ACTIONS := [
 ]
 
 
-func _init() -> void:
+func _initialize() -> void:
+	call_deferred("_run_validation")
+
+
+func _run_validation() -> void:
 	var packed_scene := load(WORLD_SCENE) as PackedScene
 	if packed_scene == null:
 		_fail("Could not load %s" % WORLD_SCENE)
@@ -23,6 +27,8 @@ func _init() -> void:
 	if not _require_node(world, "MMOCameraRig"):
 		return
 	if not _require_node(world, "CastingUILayer/CastingUI"):
+		return
+	if not _validate_casting_hud(world.get_node("CastingUILayer/CastingUI")):
 		return
 
 	for action in INPUT_ACTIONS:
@@ -39,6 +45,8 @@ func _init() -> void:
 	if not camera.has_method("get_mode_output"):
 		_fail("MMOCameraRig is not using the pipeline camera controller")
 		return
+	if not _validate_camera_input(camera):
+		return
 
 	print("3D prototype validation passed")
 	quit(0)
@@ -48,6 +56,79 @@ func _require_node(parent: Node, path: NodePath) -> bool:
 	if parent.get_node_or_null(path) == null:
 		_fail("Missing node: %s" % path)
 		return false
+	return true
+
+
+func _validate_casting_hud(casting_ui: Node) -> bool:
+	if casting_ui.get("mouse_filter") != Control.MOUSE_FILTER_IGNORE:
+		_fail("Casting HUD root must ignore mouse input outside HUD controls")
+		return false
+
+	var cast_button := casting_ui.get_node_or_null("ActionPanel/Layout/CastButton") as Button
+	if cast_button == null:
+		_fail("Casting HUD is missing the cast button")
+		return false
+
+	if cast_button.mouse_filter != Control.MOUSE_FILTER_STOP:
+		_fail("Cast button must still receive mouse clicks")
+		return false
+	if cast_button.pressed.get_connections().is_empty():
+		_fail("Cast button is not connected to the casting loop")
+		return false
+
+	for path in [
+		"ActionPanel",
+		"ActionPanel/Layout",
+		"LogPanel",
+		"LogPanel/Layout",
+	]:
+		var control := casting_ui.get_node_or_null(path) as Control
+		if control == null:
+			_fail("Casting HUD is missing %s" % path)
+			return false
+		if control.mouse_filter == Control.MOUSE_FILTER_STOP:
+			_fail("%s should not stop camera mouse input" % path)
+			return false
+
+	return true
+
+
+func _validate_camera_input(camera: Node) -> bool:
+	if not camera.has_method("get_yaw_degrees") or not camera.has_method("get_preferred_distance"):
+		_fail("Camera controller is missing orbit or zoom inspection methods")
+		return false
+
+	var yaw_before: float = camera.call("get_yaw_degrees") as float
+	var distance_before: float = camera.call("get_preferred_distance") as float
+
+	var right_mouse_press := InputEventMouseButton.new()
+	right_mouse_press.button_index = MOUSE_BUTTON_RIGHT
+	right_mouse_press.pressed = true
+	camera.call("_unhandled_input", right_mouse_press)
+
+	var mouse_motion := InputEventMouseMotion.new()
+	mouse_motion.relative = Vector2(12.0, 0.0)
+	camera.call("_unhandled_input", mouse_motion)
+
+	var yaw_after: float = camera.call("get_yaw_degrees") as float
+	if is_equal_approx(yaw_before, yaw_after):
+		_fail("Camera yaw did not change after mouse-look input")
+		return false
+
+	var wheel_up := InputEventMouseButton.new()
+	wheel_up.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel_up.pressed = true
+	camera.call("_unhandled_input", wheel_up)
+
+	var distance_after: float = camera.call("get_preferred_distance") as float
+	if is_equal_approx(distance_before, distance_after):
+		_fail("Camera zoom did not change after mouse-wheel input")
+		return false
+
+	var right_mouse_release := InputEventMouseButton.new()
+	right_mouse_release.button_index = MOUSE_BUTTON_RIGHT
+	right_mouse_release.pressed = false
+	camera.call("_unhandled_input", right_mouse_release)
 	return true
 
 
