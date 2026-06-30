@@ -32,6 +32,12 @@ func _run_validation() -> void:
 		return
 	if not _require_node(world, "CastTargetMarker"):
 		return
+	if not _require_node(world, "CastTargetMarker/TargetDisc"):
+		return
+	if not _require_node(world, "CastTargetMarker/TargetPin"):
+		return
+	if not _require_node(world, "CastTargetMarker/TargetTop"):
+		return
 	if not _require_node(world, "LureMarker"):
 		return
 	if not _require_node(world, "CastingUILayer/CastingUI"):

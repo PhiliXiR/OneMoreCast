@@ -13,7 +13,7 @@ extends Node3D
 
 @onready var player: Node3D = get_node_or_null(player_path) as Node3D
 @onready var camera: Node = get_node_or_null(camera_path)
-@onready var target_marker: MeshInstance3D = get_node_or_null(target_marker_path) as MeshInstance3D
+@onready var target_marker: Node3D = get_node_or_null(target_marker_path) as Node3D
 @onready var lure_marker: MeshInstance3D = get_node_or_null(lure_marker_path) as MeshInstance3D
 
 var target_point := Vector3.ZERO
@@ -31,6 +31,9 @@ func _ready() -> void:
 	_valid_material.albedo_color = Color(0.25, 0.9, 0.55, 0.85)
 	_invalid_material.albedo_color = Color(1.0, 0.25, 0.2, 0.85)
 	_lure_material.albedo_color = Color(1.0, 0.88, 0.3, 1.0)
+	_configure_marker_material(_valid_material, Color(0.25, 1.0, 0.55, 1.0))
+	_configure_marker_material(_invalid_material, Color(1.0, 0.2, 0.1, 1.0))
+	_configure_marker_material(_lure_material, Color(1.0, 0.88, 0.25, 1.0))
 	if lure_marker != null:
 		lure_marker.visible = false
 		lure_marker.material_override = _lure_material
@@ -83,7 +86,7 @@ func _update_cast_target() -> void:
 	player_near_water = _is_near_water(player.global_position)
 	var direction := _get_cast_direction()
 	target_point = player.global_position + direction * cast_distance
-	target_point.y = water_center.y + 0.04
+	target_point.y = water_center.y + 0.38
 	target_valid = _is_in_water(target_point)
 
 	if target_marker == null:
@@ -91,7 +94,7 @@ func _update_cast_target() -> void:
 
 	target_marker.global_position = target_point
 	target_marker.visible = true
-	target_marker.material_override = _valid_material if target_valid else _invalid_material
+	_apply_marker_material(target_marker, _valid_material if target_valid else _invalid_material)
 
 
 func _get_cast_direction() -> Vector3:
@@ -148,3 +151,19 @@ func _animate_lure() -> void:
 	lure_marker.material_override = _lure_material
 	var tween := create_tween()
 	tween.tween_property(lure_marker, "global_position", target_point + Vector3.UP * 0.12, 0.45)
+
+
+func _configure_marker_material(material: StandardMaterial3D, color: Color) -> void:
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = color
+	material.emission_enabled = true
+	material.emission = color
+	material.emission_energy_multiplier = 1.4
+	material.no_depth_test = true
+
+
+func _apply_marker_material(root: Node, material: StandardMaterial3D) -> void:
+	if root is MeshInstance3D:
+		(root as MeshInstance3D).material_override = material
+	for child in root.get_children():
+		_apply_marker_material(child, material)
