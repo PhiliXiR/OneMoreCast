@@ -54,6 +54,15 @@ func _process(_delta: float) -> void:
 	_update_spatial_view()
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
+			if cast_button.get_global_rect().has_point(mouse_event.position):
+				get_viewport().set_input_as_handled()
+				_on_cast_pressed()
+
+
 func _on_cast_pressed() -> void:
 	if state != CastState.READY:
 		return

@@ -63,6 +63,8 @@ func _run_validation() -> void:
 		return
 	if not _validate_spatial_casting(world.get_node("SpatialCasting")):
 		return
+	if not await _validate_cast_button_starts_cast(world.get_node("CastingUILayer/CastingUI")):
+		return
 
 	print("3D prototype validation passed")
 	quit(0)
@@ -76,8 +78,8 @@ func _require_node(parent: Node, path: NodePath) -> bool:
 
 
 func _validate_casting_hud(casting_ui: Node) -> bool:
-	if casting_ui.get("mouse_filter") != Control.MOUSE_FILTER_IGNORE:
-		_fail("Casting HUD root must ignore mouse input outside HUD controls")
+	if casting_ui.get("mouse_filter") == Control.MOUSE_FILTER_STOP:
+		_fail("Casting HUD root must not stop mouse input outside HUD controls")
 		return false
 
 	var cast_button := casting_ui.get_node_or_null("ActionPanel/Layout/CastButton") as Button
@@ -189,6 +191,31 @@ func _validate_camera_input(camera: Node) -> bool:
 	right_mouse_release.button_index = MOUSE_BUTTON_RIGHT
 	right_mouse_release.pressed = false
 	camera.call("_unhandled_input", right_mouse_release)
+	return true
+
+
+func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
+	var cast_button := casting_ui.get_node("ActionPanel/Layout/CastButton") as Button
+	var state_label := casting_ui.get_node("ActionPanel/Layout/StateLabel") as Label
+	var button_center := cast_button.get_global_rect().get_center()
+	var mouse_press := InputEventMouseButton.new()
+	mouse_press.button_index = MOUSE_BUTTON_LEFT
+	mouse_press.pressed = true
+	mouse_press.position = button_center
+	root.push_input(mouse_press)
+	await process_frame
+	var mouse_release := InputEventMouseButton.new()
+	mouse_release.button_index = MOUSE_BUTTON_LEFT
+	mouse_release.pressed = false
+	mouse_release.position = button_center
+	root.push_input(mouse_release)
+	await process_frame
+	if state_label.text == "State: ready":
+		_fail(
+			"Cast button press did not start the casting loop. Rect=%s disabled=%s mouse_filter=%s"
+			% [cast_button.get_global_rect(), cast_button.disabled, cast_button.mouse_filter]
+		)
+		return false
 	return true
 
 

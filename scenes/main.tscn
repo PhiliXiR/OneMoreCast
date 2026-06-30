@@ -9,7 +9,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+mouse_filter = 1
 script = ExtResource("1_casting")
 
 [node name="TitleLabel" type="Label" parent="."]
@@ -40,11 +40,11 @@ offset_right = 260.0
 offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 0
-mouse_filter = 1
+mouse_filter = 2
 
 [node name="Layout" type="VBoxContainer" parent="ActionPanel"]
 layout_mode = 2
-mouse_filter = 1
+mouse_filter = 2
 theme_override_constants/separation = 8
 
 [node name="StateLabel" type="Label" parent="ActionPanel/Layout"]
@@ -98,11 +98,11 @@ offset_top = 72.0
 offset_right = -16.0
 offset_bottom = 322.0
 grow_horizontal = 0
-mouse_filter = 1
+mouse_filter = 2
 
 [node name="Layout" type="VBoxContainer" parent="LogPanel"]
 layout_mode = 2
-mouse_filter = 1
+mouse_filter = 2
 theme_override_constants/separation = 10
 
 [node name="InventoryLabel" type="Label" parent="LogPanel/Layout"]
