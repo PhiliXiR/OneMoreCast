@@ -1,0 +1,38 @@
+[gd_scene load_steps=6 format=3 uid="uid://one_more_cast_player_rig"]
+
+[ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/character/scripts/character_movement_controller.gd" id="1_movement"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 0.45
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_player"]
+radius = 0.45
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
+albedo_color = Color(0.24, 0.52, 0.72, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_forward_marker"]
+radius = 0.12
+height = 0.24
+
+[node name="PlayerRig" type="CharacterBody3D"]
+script = ExtResource("1_movement")
+visual_root_path = NodePath("VisualRoot")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="VisualRoot" type="Node3D" parent="."]
+
+[node name="CapsuleMesh" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.9, 0)
+mesh = SubResource("CapsuleMesh_player")
+surface_material_override/0 = SubResource("StandardMaterial3D_player")
+
+[node name="ForwardMarker" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 1.35, -0.48)
+mesh = SubResource("SphereMesh_forward_marker")
+surface_material_override/0 = SubResource("StandardMaterial3D_player")

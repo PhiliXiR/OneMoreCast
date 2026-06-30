@@ -1,0 +1,81 @@
+[gd_scene load_steps=13 format=3 uid="uid://one_more_cast_world_prototype"]
+
+[ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
+[ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
+[ext_resource type="PackedScene" path="res://scenes/main.tscn" id="3_casting_ui"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_ground"]
+size = Vector3(24, 0.2, 18)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
+size = Vector3(24, 0.2, 18)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.34, 0.43, 0.38, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_dock"]
+size = Vector3(3.5, 0.25, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_dock"]
+size = Vector3(3.5, 0.25, 8)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dock"]
+albedo_color = Color(0.48, 0.37, 0.24, 1)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_water"]
+size = Vector2(28, 16)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_water"]
+albedo_color = Color(0.08, 0.28, 0.38, 0.82)
+
+[node name="WorldPrototype" type="Node3D"]
+
+[node name="PlayerRig" parent="." instance=ExtResource("1_player")]
+position = Vector3(0, 0.1, -2)
+camera_output_provider_path = NodePath("../MMOCameraRig")
+
+[node name="MMOCameraRig" type="Node3D" parent="."]
+script = ExtResource("2_camera")
+target_path = NodePath("../PlayerRig")
+initial_yaw_degrees = 30.0
+initial_pitch_degrees = -18.0
+
+[node name="Camera3D" type="Camera3D" parent="MMOCameraRig"]
+current = true
+fov = 70.0
+near = 0.05
+far = 4000.0
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+position = Vector3(0, -0.1, 0)
+shape = SubResource("BoxShape3D_ground")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+position = Vector3(0, -0.1, 0)
+mesh = SubResource("BoxMesh_ground")
+surface_material_override/0 = SubResource("StandardMaterial3D_ground")
+
+[node name="Dock" type="StaticBody3D" parent="."]
+position = Vector3(0, 0.05, 4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Dock"]
+shape = SubResource("BoxShape3D_dock")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Dock"]
+mesh = SubResource("BoxMesh_dock")
+surface_material_override/0 = SubResource("StandardMaterial3D_dock")
+
+[node name="Water" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.02, 10)
+mesh = SubResource("PlaneMesh_water")
+surface_material_override/0 = SubResource("StandardMaterial3D_water")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 7, -3)
+light_energy = 2.2
+
+[node name="CastingUILayer" type="CanvasLayer" parent="."]
+
+[node name="CastingUI" parent="CastingUILayer" instance=ExtResource("3_casting_ui")]
