@@ -101,9 +101,14 @@ func _get_cast_direction() -> Vector3:
 	if camera != null and camera.has_method("get_camera_planar_forward"):
 		var camera_forward: Vector3 = camera.call("get_camera_planar_forward") as Vector3
 		if camera_forward.length_squared() > 0.0001:
-			return -camera_forward.normalized()
+			return camera_forward.normalized()
 
 	return -player.global_transform.basis.z.normalized()
+
+
+func get_target_point() -> Vector3:
+	_update_cast_target()
+	return target_point
 
 
 func _is_in_water(point: Vector3) -> bool:

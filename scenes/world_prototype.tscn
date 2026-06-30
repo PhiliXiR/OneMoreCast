@@ -59,7 +59,7 @@ camera_output_provider_path = NodePath("../MMOCameraRig")
 [node name="MMOCameraRig" type="Node3D" parent="."]
 script = ExtResource("2_camera")
 target_path = NodePath("../PlayerRig")
-initial_yaw_degrees = 30.0
+initial_yaw_degrees = 180.0
 initial_pitch_degrees = -18.0
 
 [node name="Camera3D" type="Camera3D" parent="MMOCameraRig"]

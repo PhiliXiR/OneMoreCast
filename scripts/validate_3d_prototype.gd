@@ -119,6 +119,7 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"get_landing_quality",
 		"get_spatial_feedback",
 		"get_result_context",
+		"get_target_point",
 	]:
 		if not spatial_casting.has_method(method):
 			_fail("Spatial casting provider is missing %s" % method)
@@ -131,6 +132,16 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 
 	if not (spatial_casting.call("can_start_cast") as bool):
 		_fail("Initial prototype spawn should have a valid spatial cast")
+		return false
+
+	var target_point: Vector3 = spatial_casting.call("get_target_point") as Vector3
+	var player := spatial_casting.get_node(spatial_casting.get("player_path") as NodePath) as Node3D
+	var camera := spatial_casting.get_node(spatial_casting.get("camera_path") as NodePath)
+	var camera_forward: Vector3 = camera.call("get_camera_planar_forward") as Vector3
+	var player_to_target := target_point - player.global_position
+	player_to_target.y = 0.0
+	if player_to_target.normalized().dot(camera_forward.normalized()) < 0.9:
+		_fail("Cast target is not in the camera-facing direction")
 		return false
 
 	spatial_casting.call("begin_cast")
