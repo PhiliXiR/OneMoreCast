@@ -152,6 +152,9 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"get_rod_cast_motion_offset",
 		"get_landing_feedback_label",
 		"is_landing_feedback_visible",
+		"did_last_cast_land_in_water",
+		"is_cast_landed",
+		"get_waiting_for_bite_duration",
 		"refresh_casting_visuals",
 	]:
 		if not spatial_casting.has_method(method):
@@ -181,6 +184,12 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 	var quality: float = spatial_casting.call("get_landing_quality") as float
 	if quality <= 0.0:
 		_fail("Valid spatial cast did not produce landing quality")
+		return false
+	if not (spatial_casting.call("did_last_cast_land_in_water") as bool):
+		_fail("Valid spatial cast should record that it landed in water")
+		return false
+	if (spatial_casting.call("get_waiting_for_bite_duration") as float) <= 0.0:
+		_fail("Valid spatial cast should expose a short waiting-for-bite duration")
 		return false
 
 	return true
@@ -384,6 +393,19 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 			"Cast button press did not start the casting loop. Rect=%s disabled=%s mouse_filter=%s"
 			% [cast_button.get_global_rect(), cast_button.disabled, cast_button.mouse_filter]
 		)
+		return false
+
+	var saw_waiting := false
+	for frame in 60:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: waiting":
+			saw_waiting = true
+			break
+		if state_label.text == "State: result":
+			_fail("Cast loop reached result before entering waiting-for-bite")
+			return false
+	if not saw_waiting:
+		_fail("Cast loop did not enter waiting-for-bite after the lure landed")
 		return false
 	return true
 

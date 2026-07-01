@@ -160,6 +160,20 @@ func is_landing_feedback_visible() -> bool:
 	return _landing_feedback_visible
 
 
+func did_last_cast_land_in_water() -> bool:
+	return last_landing_quality > 0.0
+
+
+func is_cast_landed() -> bool:
+	return _phase == CastPhase.LANDED_SLACK or _phase == CastPhase.LANDED_TAUT
+
+
+func get_waiting_for_bite_duration() -> float:
+	if last_landing_quality <= 0.0:
+		return 0.0
+	return lerpf(1.25, 0.65, last_landing_quality)
+
+
 func get_rod_tip_position() -> Vector3:
 	if rod_tip == null:
 		return Vector3.ZERO
