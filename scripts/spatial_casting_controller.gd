@@ -63,11 +63,11 @@ var _bite_feedback_label := "none"
 
 
 func _ready() -> void:
-	_valid_material.albedo_color = Color(0.25, 0.9, 0.55, 0.85)
-	_invalid_material.albedo_color = Color(1.0, 0.25, 0.2, 0.85)
+	_valid_material.albedo_color = Color(0.32, 1.0, 0.74, 0.55)
+	_invalid_material.albedo_color = Color(1.0, 0.32, 0.24, 0.55)
 	_lure_material.albedo_color = Color(1.0, 0.88, 0.3, 1.0)
-	_configure_marker_material(_valid_material, Color(0.25, 1.0, 0.55, 1.0))
-	_configure_marker_material(_invalid_material, Color(1.0, 0.2, 0.1, 1.0))
+	_configure_marker_material(_valid_material, Color(0.32, 1.0, 0.74, 0.55))
+	_configure_marker_material(_invalid_material, Color(1.0, 0.32, 0.24, 0.55))
 	_configure_marker_material(_lure_material, Color(1.0, 0.88, 0.25, 1.0))
 	_configure_feedback_material(_water_feedback_material, Color(0.65, 0.95, 1.0, 0.82))
 	_configure_feedback_material(_miss_feedback_material, Color(1.0, 0.38, 0.12, 0.82))
@@ -597,10 +597,11 @@ func _ease_out_cubic(value: float) -> float:
 
 func _configure_marker_material(material: StandardMaterial3D, color: Color) -> void:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.albedo_color = color
 	material.emission_enabled = true
-	material.emission = color
-	material.emission_energy_multiplier = 1.4
+	material.emission = Color(color.r, color.g, color.b, 1.0)
+	material.emission_energy_multiplier = 0.75
 	material.no_depth_test = true
 
 

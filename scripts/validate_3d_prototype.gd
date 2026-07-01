@@ -63,6 +63,8 @@ func _run_validation() -> void:
 		return
 	if not _validate_casting_hud(world.get_node("CastingUILayer/CastingUI")):
 		return
+	if not _validate_cast_target_marker(world.get_node("CastTargetMarker")):
+		return
 
 	for action in INPUT_ACTIONS:
 		if not InputMap.has_action(action):
@@ -131,6 +133,28 @@ func _validate_casting_hud(casting_ui: Node) -> bool:
 			_fail("%s should not stop camera mouse input" % path)
 			return false
 
+	return true
+
+
+func _validate_cast_target_marker(cast_target_marker: Node) -> bool:
+	var disc := cast_target_marker.get_node("TargetDisc") as MeshInstance3D
+	var pin := cast_target_marker.get_node("TargetPin") as MeshInstance3D
+	var top := cast_target_marker.get_node("TargetTop") as MeshInstance3D
+	var disc_mesh := disc.mesh as CylinderMesh
+	var pin_mesh := pin.mesh as CylinderMesh
+	var top_mesh := top.mesh as SphereMesh
+	if disc_mesh == null or disc_mesh.top_radius > 0.45:
+		_fail("Cast target disc should stay compact and unobtrusive")
+		return false
+	if pin_mesh == null or pin_mesh.height > 0.35:
+		_fail("Cast target pin should stay low-profile")
+		return false
+	if top_mesh == null or top_mesh.radius > 0.1:
+		_fail("Cast target top marker should stay subtle")
+		return false
+	if top.position.y > 0.35:
+		_fail("Cast target marker should not tower over the water")
+		return false
 	return true
 
 
