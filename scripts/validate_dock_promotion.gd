@@ -30,7 +30,7 @@ func _run_validation() -> void:
 	if dock.scene_file_path != DOCK_SCENE:
 		_fail("World Dock does not instance %s" % DOCK_SCENE)
 		return
-	if dock.global_position.distance_to(Vector3(0.0, 0.0, 4.0)) > 0.01:
+	if dock.global_position.distance_to(Vector3(-0.35, 0.08, 4.05)) > 0.01:
 		_fail("World Dock is not placed at the expected shoreline prototype position")
 		return
 
