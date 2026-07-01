@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=24 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -38,9 +38,16 @@ height = 0.18
 radius = 0.07
 height = 0.14
 
+[sub_resource type="BoxMesh" id="BoxMesh_target_tick"]
+size = Vector3(0.24, 0.014, 0.035)
+
 [sub_resource type="SphereMesh" id="SphereMesh_lure"]
 radius = 0.12
 height = 0.24
+
+[sub_resource type="SphereMesh" id="SphereMesh_hooked_fish"]
+radius = 0.22
+height = 0.44
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_ripple_outer"]
 top_radius = 0.52
@@ -108,16 +115,39 @@ visible = false
 mesh = SubResource("CylinderMesh_target")
 
 [node name="TargetPin" type="MeshInstance3D" parent="CastTargetMarker"]
-position = Vector3(0, 0.12, 0)
+position = Vector3(0, 0.045, 0)
 mesh = SubResource("CylinderMesh_target_pin")
 
 [node name="TargetTop" type="MeshInstance3D" parent="CastTargetMarker"]
-position = Vector3(0, 0.24, 0)
+position = Vector3(0, 0.09, 0)
 mesh = SubResource("SphereMesh_target_top")
+
+[node name="TickNorth" type="MeshInstance3D" parent="CastTargetMarker"]
+position = Vector3(0, 0.012, -0.34)
+rotation = Vector3(0, 1.5708, 0)
+mesh = SubResource("BoxMesh_target_tick")
+
+[node name="TickEast" type="MeshInstance3D" parent="CastTargetMarker"]
+position = Vector3(0.34, 0.012, 0)
+mesh = SubResource("BoxMesh_target_tick")
+
+[node name="TickSouth" type="MeshInstance3D" parent="CastTargetMarker"]
+position = Vector3(0, 0.012, 0.34)
+rotation = Vector3(0, 1.5708, 0)
+mesh = SubResource("BoxMesh_target_tick")
+
+[node name="TickWest" type="MeshInstance3D" parent="CastTargetMarker"]
+position = Vector3(-0.34, 0.012, 0)
+mesh = SubResource("BoxMesh_target_tick")
 
 [node name="LureMarker" type="MeshInstance3D" parent="."]
 visible = false
 mesh = SubResource("SphereMesh_lure")
+
+[node name="HookedFishMarker" type="MeshInstance3D" parent="."]
+visible = false
+scale = Vector3(1.4, 0.65, 0.55)
+mesh = SubResource("SphereMesh_hooked_fish")
 
 [node name="LandingFeedback" type="Node3D" parent="."]
 visible = false
@@ -153,6 +183,7 @@ player_path = NodePath("../PlayerRig")
 camera_path = NodePath("../MMOCameraRig")
 target_marker_path = NodePath("../CastTargetMarker")
 lure_marker_path = NodePath("../LureMarker")
+hooked_fish_marker_path = NodePath("../HookedFishMarker")
 rod_root_path = NodePath("../PlayerRig/VisualRoot/RodRoot")
 rod_tip_path = NodePath("../PlayerRig/VisualRoot/RodRoot/RodTip")
 fishing_line_path = NodePath("../FishingLine")

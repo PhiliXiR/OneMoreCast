@@ -39,7 +39,17 @@ func _run_validation() -> void:
 		return
 	if not _require_node(world, "CastTargetMarker/TargetTop"):
 		return
+	if not _require_node(world, "CastTargetMarker/TickNorth"):
+		return
+	if not _require_node(world, "CastTargetMarker/TickEast"):
+		return
+	if not _require_node(world, "CastTargetMarker/TickSouth"):
+		return
+	if not _require_node(world, "CastTargetMarker/TickWest"):
+		return
 	if not _require_node(world, "LureMarker"):
+		return
+	if not _require_node(world, "HookedFishMarker"):
 		return
 	if not _require_node(world, "LandingFeedback"):
 		return
@@ -140,10 +150,12 @@ func _validate_cast_target_marker(cast_target_marker: Node) -> bool:
 	var disc := cast_target_marker.get_node("TargetDisc") as MeshInstance3D
 	var pin := cast_target_marker.get_node("TargetPin") as MeshInstance3D
 	var top := cast_target_marker.get_node("TargetTop") as MeshInstance3D
+	var tick_north := cast_target_marker.get_node("TickNorth") as MeshInstance3D
 	var disc_mesh := disc.mesh as CylinderMesh
 	var pin_mesh := pin.mesh as CylinderMesh
 	var top_mesh := top.mesh as SphereMesh
-	if disc_mesh == null or disc_mesh.top_radius > 0.45:
+	var tick_mesh := tick_north.mesh as BoxMesh
+	if disc_mesh == null or disc_mesh.top_radius > 0.35:
 		_fail("Cast target disc should stay compact and unobtrusive")
 		return false
 	if pin_mesh == null or pin_mesh.height > 0.35:
@@ -154,6 +166,9 @@ func _validate_cast_target_marker(cast_target_marker: Node) -> bool:
 		return false
 	if top.position.y > 0.35:
 		_fail("Cast target marker should not tower over the water")
+		return false
+	if tick_mesh == null or tick_mesh.size.x > 0.3 or tick_mesh.size.z > 0.05:
+		_fail("Cast target ticks should stay clean and minimal")
 		return false
 	return true
 
@@ -183,6 +198,8 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"trigger_bite_feedback",
 		"is_bite_feedback_active",
 		"get_bite_feedback_label",
+		"begin_reel_feedback",
+		"is_reel_feedback_active",
 		"refresh_casting_visuals",
 	]:
 		if not spatial_casting.has_method(method):
@@ -342,6 +359,7 @@ func _validate_rod_and_line(world: Node) -> bool:
 		return false
 
 	var lure_before_bite := lure_marker.global_position
+	var line_before_reel := Vector3.ZERO
 	var rod_before_bite := spatial_casting.call("get_rod_cast_motion_offset") as float
 	if not (spatial_casting.call("trigger_bite_feedback") as bool):
 		_fail("Valid landed water cast should trigger bite feedback")
@@ -359,6 +377,30 @@ func _validate_rod_and_line(world: Node) -> bool:
 	var rod_after_bite := spatial_casting.call("get_rod_cast_motion_offset") as float
 	if lure_after_bite.distance_to(lure_before_bite) <= 0.02 and absf(rod_after_bite - rod_before_bite) <= 0.01:
 		_fail("Bite feedback should visibly twitch the lure, line, or rod")
+		return false
+	line_before_reel = spatial_casting.call("get_line_endpoint") as Vector3
+	if not (spatial_casting.call("begin_reel_feedback", 1.2) as bool):
+		_fail("Valid hooked cast should start reel feedback")
+		return false
+	if not (spatial_casting.call("is_reel_feedback_active") as bool):
+		_fail("Reel feedback should become active")
+		return false
+	var hooked_fish_marker := world.get_node("HookedFishMarker") as MeshInstance3D
+	if not hooked_fish_marker.visible:
+		_fail("Hooked fish marker should appear during reel feedback")
+		return false
+	if hooked_fish_marker.global_position.y >= original_water_center.y:
+		_fail("Hooked fish should start underwater during reel feedback")
+		return false
+	for frame in 8:
+		spatial_casting.call("refresh_casting_visuals", 0.08)
+		await process_frame
+	var line_during_reel := spatial_casting.call("get_line_endpoint") as Vector3
+	if line_during_reel.distance_to(rod_tip.global_position) >= line_before_reel.distance_to(rod_tip.global_position):
+		_fail("Reel feedback should shorten the fishing line toward the rod")
+		return false
+	if hooked_fish_marker.global_position.y >= original_water_center.y:
+		_fail("Hooked fish should stay underwater until it gets closer to the rod")
 		return false
 
 	spatial_casting.set("water_center", Vector3(100.0, original_water_center.y, 100.0))
@@ -483,7 +525,16 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		return false
 	_push_action(&"set_hook", true)
 	_push_action(&"set_hook", false)
+	var saw_reeling := false
 	for frame in 40:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: reeling":
+			saw_reeling = true
+			break
+	if not saw_reeling:
+		_fail("Hook-set input should enter a reeling state before the catch result")
+		return false
+	for frame in 50:
 		await create_timer(0.05).timeout
 		if state_label.text == "State: result":
 			break

@@ -126,6 +126,10 @@ func _run_cast_sequence() -> void:
 	cast_button.disabled = true
 	cast_button.text = "Cast"
 
+	if hook_set:
+		_begin_reel_feedback()
+		await _advance(CastState.REELING, "You reel down and bring the fish closer.", 1.2)
+
 	state = CastState.RESULT
 	var result_message := _resolve_hook_outcome()
 	_update_view(result_message)
@@ -303,6 +307,11 @@ func _get_waiting_for_bite_duration() -> float:
 func _trigger_bite_feedback() -> void:
 	if spatial_casting_provider != null and spatial_casting_provider.has_method("trigger_bite_feedback"):
 		spatial_casting_provider.call("trigger_bite_feedback")
+
+
+func _begin_reel_feedback() -> void:
+	if spatial_casting_provider != null and spatial_casting_provider.has_method("begin_reel_feedback"):
+		spatial_casting_provider.call("begin_reel_feedback", 1.2)
 
 
 func _get_result_context() -> String:

@@ -6,6 +6,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @export var camera_path: NodePath
 @export var target_marker_path: NodePath
 @export var lure_marker_path: NodePath
+@export var hooked_fish_marker_path: NodePath
 @export var rod_root_path: NodePath
 @export var rod_tip_path: NodePath
 @export var fishing_line_path: NodePath
@@ -22,6 +23,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @onready var camera: Node = get_node_or_null(camera_path)
 @onready var target_marker: Node3D = get_node_or_null(target_marker_path) as Node3D
 @onready var lure_marker: MeshInstance3D = get_node_or_null(lure_marker_path) as MeshInstance3D
+@onready var hooked_fish_marker: MeshInstance3D = get_node_or_null(hooked_fish_marker_path) as MeshInstance3D
 @onready var rod_root: Node3D = get_node_or_null(rod_root_path) as Node3D
 @onready var rod_tip: Node3D = get_node_or_null(rod_tip_path) as Node3D
 @onready var fishing_line: MeshInstance3D = get_node_or_null(fishing_line_path) as MeshInstance3D
@@ -37,6 +39,7 @@ var last_landing_label := "No cast yet"
 var _valid_material := StandardMaterial3D.new()
 var _invalid_material := StandardMaterial3D.new()
 var _lure_material := StandardMaterial3D.new()
+var _fish_material := StandardMaterial3D.new()
 var _water_feedback_material := StandardMaterial3D.new()
 var _miss_feedback_material := StandardMaterial3D.new()
 var _phase := CastPhase.AIMING
@@ -60,20 +63,31 @@ var _bite_feedback_active := false
 var _bite_feedback_elapsed := 0.0
 var _bite_feedback_duration := 0.85
 var _bite_feedback_label := "none"
+var _reel_feedback_active := false
+var _reel_feedback_elapsed := 0.0
+var _reel_feedback_duration := 1.2
+var _reel_start := Vector3.ZERO
+var _reel_end := Vector3.ZERO
+var _reel_feedback_completed := false
 
 
 func _ready() -> void:
 	_valid_material.albedo_color = Color(0.32, 1.0, 0.74, 0.55)
 	_invalid_material.albedo_color = Color(1.0, 0.32, 0.24, 0.55)
 	_lure_material.albedo_color = Color(1.0, 0.88, 0.3, 1.0)
+	_fish_material.albedo_color = Color(0.22, 0.74, 0.92, 1.0)
 	_configure_marker_material(_valid_material, Color(0.32, 1.0, 0.74, 0.55))
 	_configure_marker_material(_invalid_material, Color(1.0, 0.32, 0.24, 0.55))
 	_configure_marker_material(_lure_material, Color(1.0, 0.88, 0.25, 1.0))
+	_configure_fish_material()
 	_configure_feedback_material(_water_feedback_material, Color(0.65, 0.95, 1.0, 0.82))
 	_configure_feedback_material(_miss_feedback_material, Color(1.0, 0.38, 0.12, 0.82))
 	if lure_marker != null:
 		lure_marker.visible = false
 		lure_marker.material_override = _lure_material
+	if hooked_fish_marker != null:
+		hooked_fish_marker.visible = false
+		hooked_fish_marker.material_override = _fish_material
 	if fishing_line != null:
 		fishing_line.visible = false
 	if line_overlay != null:
@@ -134,6 +148,8 @@ func begin_cast() -> void:
 	lure_marker.material_override = _lure_material
 	_hide_landing_feedback(true)
 	_stop_bite_feedback(true)
+	_stop_reel_feedback()
+	_reel_feedback_completed = false
 	_update_cast_line(0.0)
 
 
@@ -195,6 +211,31 @@ func is_bite_feedback_active() -> bool:
 
 func get_bite_feedback_label() -> String:
 	return _bite_feedback_label
+
+
+func begin_reel_feedback(duration := 1.2) -> bool:
+	if not did_last_cast_land_in_water() or not is_cast_landed():
+		return false
+
+	_stop_bite_feedback()
+	_reel_feedback_active = true
+	_reel_feedback_completed = false
+	_reel_feedback_elapsed = 0.0
+	_reel_feedback_duration = maxf(duration, 0.1)
+	_reel_start = _cast_destination
+	_reel_end = get_rod_tip_position() + _get_cast_direction() * 0.55 + Vector3.DOWN * 0.22
+	if lure_marker != null:
+		lure_marker.visible = true
+		lure_marker.global_position = _reel_start
+	if hooked_fish_marker != null:
+		hooked_fish_marker.visible = true
+		hooked_fish_marker.global_position = _get_hooked_fish_position(_reel_start, 0.0)
+	_update_reel_feedback(0.0)
+	return true
+
+
+func is_reel_feedback_active() -> bool:
+	return _reel_feedback_active
 
 
 func get_rod_tip_position() -> Vector3:
@@ -350,13 +391,18 @@ func _update_cast_line(progress: float) -> void:
 func _update_landed_line(delta: float) -> void:
 	_landed_elapsed += delta
 	_update_bite_feedback(delta)
+	_update_reel_feedback(delta)
 	if _landed_elapsed > 1.15:
 		_phase = CastPhase.LANDED_TAUT
 
 	var start := get_rod_tip_position()
 	var end := _cast_destination
 	if lure_marker != null:
-		if _bite_feedback_active:
+		if _reel_feedback_active:
+			lure_marker.global_position = _get_reel_position()
+		elif _reel_feedback_completed:
+			lure_marker.global_position = _reel_end
+		elif _bite_feedback_active:
 			lure_marker.global_position = _cast_destination + _get_bite_feedback_offset()
 		else:
 			lure_marker.global_position = _cast_destination
@@ -364,8 +410,11 @@ func _update_landed_line(delta: float) -> void:
 
 	var bite_sag := 0.16 if _bite_feedback_active else 0.0
 	var bite_sway := 0.1 if _bite_feedback_active else 0.0
+	var reel_tension := _get_reel_progress() if (_reel_feedback_active or _reel_feedback_completed) else 0.0
 	var slack_amount := (0.75 if _phase == CastPhase.LANDED_SLACK else 0.14) + bite_sag
 	var lateral_sway := (0.18 if _phase == CastPhase.LANDED_SLACK else 0.04) + bite_sway
+	slack_amount = lerpf(slack_amount, 0.05, reel_tension)
+	lateral_sway = lerpf(lateral_sway, 0.02, reel_tension)
 	_set_line_points(_build_sagging_line_points(start, end, slack_amount, lateral_sway), target_valid and player_near_water)
 
 
@@ -478,6 +527,9 @@ func _update_rod_motion() -> void:
 	if _bite_feedback_active:
 		var pulse := sin(clampf(_bite_feedback_elapsed / _bite_feedback_duration, 0.0, 1.0) * PI * 5.0)
 		target_rotation += Vector3(-0.12 * pulse, 0.0, 0.0)
+	if _reel_feedback_active:
+		var reel_pulse := sin(_get_reel_progress() * PI * 6.0)
+		target_rotation += Vector3(-0.08 - 0.05 * reel_pulse, 0.0, 0.0)
 
 	_rod_cast_rotation = _rod_cast_rotation.lerp(target_rotation, 0.85)
 	rod_root.rotation = _rod_cast_rotation
@@ -591,6 +643,56 @@ func _stop_bite_feedback(reset_label := false) -> void:
 		lure_marker.global_position = _cast_destination
 
 
+func _update_reel_feedback(delta: float) -> void:
+	if not _reel_feedback_active:
+		return
+
+	_reel_feedback_elapsed += delta
+	var position := _get_reel_position()
+	if lure_marker != null:
+		lure_marker.global_position = position
+	if hooked_fish_marker != null:
+		hooked_fish_marker.global_position = _get_hooked_fish_position(position, _get_reel_progress())
+		hooked_fish_marker.rotation.y += delta * 7.0
+	if _reel_feedback_elapsed >= _reel_feedback_duration:
+		_reel_feedback_active = false
+		_reel_feedback_completed = true
+		if lure_marker != null:
+			lure_marker.global_position = _reel_end
+		if hooked_fish_marker != null:
+			hooked_fish_marker.visible = false
+
+
+func _get_reel_progress() -> float:
+	if _reel_feedback_duration <= 0.0:
+		return 1.0
+	return clampf(_reel_feedback_elapsed / _reel_feedback_duration, 0.0, 1.0)
+
+
+func _get_reel_position() -> Vector3:
+	var progress := _ease_out_cubic(_get_reel_progress())
+	var position := _reel_start.lerp(_reel_end, progress)
+	position += Vector3.UP * sin(progress * PI) * 0.35
+	return position
+
+
+func _get_hooked_fish_position(line_position: Vector3, progress: float) -> Vector3:
+	var underwater_y := water_center.y - 0.22
+	var emerge_progress := clampf((progress - 0.68) / 0.32, 0.0, 1.0)
+	var fish_position := line_position + Vector3.DOWN * 0.28
+	fish_position.y = lerpf(underwater_y, line_position.y - 0.16, emerge_progress)
+	fish_position.y += sin(progress * PI * 8.0) * 0.05
+	return fish_position
+
+
+func _stop_reel_feedback() -> void:
+	_reel_feedback_active = false
+	_reel_feedback_elapsed = 0.0
+	_reel_feedback_completed = false
+	if hooked_fish_marker != null:
+		hooked_fish_marker.visible = false
+
+
 func _ease_out_cubic(value: float) -> float:
 	return 1.0 - pow(1.0 - value, 3.0)
 
@@ -612,6 +714,12 @@ func _configure_feedback_material(material: StandardMaterial3D, color: Color) ->
 	material.emission_enabled = true
 	material.emission = Color(color.r, color.g, color.b, 1.0)
 	material.emission_energy_multiplier = 0.9
+
+
+func _configure_fish_material() -> void:
+	_fish_material.roughness = 0.42
+	_fish_material.metallic = 0.0
+	_fish_material.albedo_color = Color(0.22, 0.74, 0.92, 1.0)
 
 
 func _apply_marker_material(root: Node, material: StandardMaterial3D) -> void:
