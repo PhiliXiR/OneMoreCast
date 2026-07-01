@@ -259,7 +259,10 @@ func _validate_rod_and_line(world: Node) -> bool:
 		_fail("Fishing line should settle into slack or taut state after landing")
 		return false
 	if lure_marker.global_position.distance_to(target_point + Vector3.UP * 0.12) > 0.15:
-		_fail("Lure should land at the target point")
+		_fail(
+			"Lure should land at the target point. Lure=%s expected=%s target=%s"
+			% [lure_marker.global_position, target_point + Vector3.UP * 0.12, target_point]
+		)
 		return false
 
 	for frame in 18:
