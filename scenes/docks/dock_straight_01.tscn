@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3 uid="uid://dock_straight_01_scene"]
+
+[ext_resource type="PackedScene" path="res://assets/docks/dock_straight_01.glb" id="1_visual"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_deck_collision"]
+size = Vector3(8, 0.24, 2.5)
+
+[node name="DockStraight01" type="Node3D"]
+
+[node name="Visual" parent="." instance=ExtResource("1_visual")]
+position = Vector3(0, -0.72, 0)
+
+[node name="DeckCollision" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DeckCollision"]
+position = Vector3(0, 0.08, 0)
+shape = SubResource("BoxShape3D_deck_collision")

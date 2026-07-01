@@ -1,9 +1,10 @@
-[gd_scene load_steps=21 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=19 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
 [ext_resource type="PackedScene" path="res://scenes/main.tscn" id="3_casting_ui"]
 [ext_resource type="Script" path="res://scripts/spatial_casting_controller.gd" id="4_spatial"]
+[ext_resource type="PackedScene" path="res://scenes/docks/dock_straight_01.tscn" id="5_dock"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_ground"]
 size = Vector3(24, 0.2, 18)
@@ -13,15 +14,6 @@ size = Vector3(24, 0.2, 18)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
 albedo_color = Color(0.34, 0.43, 0.38, 1)
-
-[sub_resource type="BoxMesh" id="BoxMesh_dock"]
-size = Vector3(3.5, 0.25, 8)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_dock"]
-size = Vector3(3.5, 0.25, 8)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dock"]
-albedo_color = Color(0.48, 0.37, 0.24, 1)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_water"]
 size = Vector2(28, 16)
@@ -79,15 +71,9 @@ position = Vector3(0, -0.1, 0)
 mesh = SubResource("BoxMesh_ground")
 surface_material_override/0 = SubResource("StandardMaterial3D_ground")
 
-[node name="Dock" type="StaticBody3D" parent="."]
-position = Vector3(0, 0.05, 4)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Dock"]
-shape = SubResource("BoxShape3D_dock")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Dock"]
-mesh = SubResource("BoxMesh_dock")
-surface_material_override/0 = SubResource("StandardMaterial3D_dock")
+[node name="Dock" parent="." instance=ExtResource("5_dock")]
+position = Vector3(0, 0, 4)
+rotation = Vector3(0, 1.5708, 0)
 
 [node name="Water" type="MeshInstance3D" parent="."]
 position = Vector3(0, -0.02, 10)
