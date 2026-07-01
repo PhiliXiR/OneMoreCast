@@ -155,6 +155,9 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"did_last_cast_land_in_water",
 		"is_cast_landed",
 		"get_waiting_for_bite_duration",
+		"trigger_bite_feedback",
+		"is_bite_feedback_active",
+		"get_bite_feedback_label",
 		"refresh_casting_visuals",
 	]:
 		if not spatial_casting.has_method(method):
@@ -313,6 +316,26 @@ func _validate_rod_and_line(world: Node) -> bool:
 		_fail("Fishing line should transition to taut after the landed slack settles")
 		return false
 
+	var lure_before_bite := lure_marker.global_position
+	var rod_before_bite := spatial_casting.call("get_rod_cast_motion_offset") as float
+	if not (spatial_casting.call("trigger_bite_feedback") as bool):
+		_fail("Valid landed water cast should trigger bite feedback")
+		return false
+	if not (spatial_casting.call("is_bite_feedback_active") as bool):
+		_fail("Bite feedback should become active after being triggered")
+		return false
+	if spatial_casting.call("get_bite_feedback_label") as String != "bite twitch":
+		_fail("Bite feedback should expose a bite twitch label")
+		return false
+	for frame in 3:
+		spatial_casting.call("refresh_casting_visuals", 0.08)
+		await process_frame
+	var lure_after_bite := lure_marker.global_position
+	var rod_after_bite := spatial_casting.call("get_rod_cast_motion_offset") as float
+	if lure_after_bite.distance_to(lure_before_bite) <= 0.02 and absf(rod_after_bite - rod_before_bite) <= 0.01:
+		_fail("Bite feedback should visibly twitch the lure, line, or rod")
+		return false
+
 	spatial_casting.set("water_center", Vector3(100.0, original_water_center.y, 100.0))
 	spatial_casting.call("refresh_casting_visuals")
 	await process_frame
@@ -325,6 +348,9 @@ func _validate_rod_and_line(world: Node) -> bool:
 		return false
 	if spatial_casting.call("get_landing_feedback_label") as String != "miss puff":
 		_fail("Off-water landing should register miss puff feedback")
+		return false
+	if spatial_casting.call("trigger_bite_feedback") as bool:
+		_fail("Off-water landing should not trigger bite feedback")
 		return false
 	spatial_casting.set("water_center", original_water_center)
 	spatial_casting.call("refresh_casting_visuals")
@@ -406,6 +432,18 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 			return false
 	if not saw_waiting:
 		_fail("Cast loop did not enter waiting-for-bite after the lure landed")
+		return false
+	var saw_bite := false
+	for frame in 60:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: bite":
+			saw_bite = true
+			break
+		if state_label.text == "State: result":
+			_fail("Cast loop reached result before showing bite state")
+			return false
+	if not saw_bite:
+		_fail("Cast loop did not enter bite state after waiting-for-bite")
 		return false
 	return true
 

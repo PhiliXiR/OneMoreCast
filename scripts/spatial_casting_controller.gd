@@ -56,6 +56,10 @@ var _landing_feedback_duration := 0.9
 var _landing_feedback_visible := false
 var _landing_feedback_valid := false
 var _landing_feedback_label := "none"
+var _bite_feedback_active := false
+var _bite_feedback_elapsed := 0.0
+var _bite_feedback_duration := 0.85
+var _bite_feedback_label := "none"
 
 
 func _ready() -> void:
@@ -129,6 +133,7 @@ func begin_cast() -> void:
 	lure_marker.global_position = _cast_start
 	lure_marker.material_override = _lure_material
 	_hide_landing_feedback(true)
+	_stop_bite_feedback(true)
 	_update_cast_line(0.0)
 
 
@@ -172,6 +177,24 @@ func get_waiting_for_bite_duration() -> float:
 	if last_landing_quality <= 0.0:
 		return 0.0
 	return lerpf(1.25, 0.65, last_landing_quality)
+
+
+func trigger_bite_feedback() -> bool:
+	if not did_last_cast_land_in_water() or not is_cast_landed():
+		return false
+
+	_bite_feedback_active = true
+	_bite_feedback_elapsed = 0.0
+	_bite_feedback_label = "bite twitch"
+	return true
+
+
+func is_bite_feedback_active() -> bool:
+	return _bite_feedback_active
+
+
+func get_bite_feedback_label() -> String:
+	return _bite_feedback_label
 
 
 func get_rod_tip_position() -> Vector3:
@@ -326,16 +349,23 @@ func _update_cast_line(progress: float) -> void:
 
 func _update_landed_line(delta: float) -> void:
 	_landed_elapsed += delta
+	_update_bite_feedback(delta)
 	if _landed_elapsed > 1.15:
 		_phase = CastPhase.LANDED_TAUT
 
 	var start := get_rod_tip_position()
 	var end := _cast_destination
 	if lure_marker != null:
+		if _bite_feedback_active:
+			lure_marker.global_position = _cast_destination + _get_bite_feedback_offset()
+		else:
+			lure_marker.global_position = _cast_destination
 		end = lure_marker.global_position
 
-	var slack_amount := 0.75 if _phase == CastPhase.LANDED_SLACK else 0.14
-	var lateral_sway := 0.18 if _phase == CastPhase.LANDED_SLACK else 0.04
+	var bite_sag := 0.16 if _bite_feedback_active else 0.0
+	var bite_sway := 0.1 if _bite_feedback_active else 0.0
+	var slack_amount := (0.75 if _phase == CastPhase.LANDED_SLACK else 0.14) + bite_sag
+	var lateral_sway := (0.18 if _phase == CastPhase.LANDED_SLACK else 0.04) + bite_sway
 	_set_line_points(_build_sagging_line_points(start, end, slack_amount, lateral_sway), target_valid and player_near_water)
 
 
@@ -445,6 +475,9 @@ func _update_rod_motion() -> void:
 		target_rotation = _rod_rest_rotation + Vector3(-0.08, 0.0, 0.0)
 	elif _phase == CastPhase.LANDED_TAUT:
 		target_rotation = _rod_rest_rotation + Vector3(-0.03, 0.0, 0.0)
+	if _bite_feedback_active:
+		var pulse := sin(clampf(_bite_feedback_elapsed / _bite_feedback_duration, 0.0, 1.0) * PI * 5.0)
+		target_rotation += Vector3(-0.12 * pulse, 0.0, 0.0)
 
 	_rod_cast_rotation = _rod_cast_rotation.lerp(target_rotation, 0.85)
 	rod_root.rotation = _rod_cast_rotation
@@ -523,6 +556,39 @@ func _update_landing_feedback(delta: float) -> void:
 
 	if progress >= 1.0:
 		_hide_landing_feedback()
+
+
+func _update_bite_feedback(delta: float) -> void:
+	if not _bite_feedback_active:
+		return
+
+	_bite_feedback_elapsed += delta
+	if _bite_feedback_elapsed >= _bite_feedback_duration:
+		_stop_bite_feedback()
+
+
+func _get_bite_feedback_offset() -> Vector3:
+	if not _bite_feedback_active:
+		return Vector3.ZERO
+
+	var progress := clampf(_bite_feedback_elapsed / _bite_feedback_duration, 0.0, 1.0)
+	var pulse := sin(progress * PI * 6.0)
+	var cast_direction := (_cast_destination - _cast_start).normalized()
+	if cast_direction.length_squared() <= 0.0001:
+		cast_direction = Vector3.FORWARD
+	var side := cast_direction.cross(Vector3.UP).normalized()
+	if side.length_squared() <= 0.0001:
+		side = Vector3.RIGHT
+	return side * pulse * 0.18 + Vector3.DOWN * absf(pulse) * 0.12
+
+
+func _stop_bite_feedback(reset_label := false) -> void:
+	_bite_feedback_active = false
+	_bite_feedback_elapsed = 0.0
+	if reset_label:
+		_bite_feedback_label = "none"
+	if lure_marker != null and is_cast_landed():
+		lure_marker.global_position = _cast_destination
 
 
 func _ease_out_cubic(value: float) -> float:

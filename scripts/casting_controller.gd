@@ -101,9 +101,11 @@ func _run_cast_sequence() -> void:
 		"The line settles. Watch the water and keep the rod ready.",
 		wait_duration
 	)
+	_trigger_bite_feedback()
+	await _advance(CastState.BITE, "A sharp twitch snaps through the line.", 0.75)
 
 	state = CastState.RESULT
-	var result_message := _resolve_waiting_cast()
+	var result_message := _resolve_bite_signal_cast()
 	_update_view(result_message)
 
 	await get_tree().create_timer(0.9).timeout
@@ -151,6 +153,14 @@ func _resolve_waiting_cast() -> String:
 	result_label.text = "Latest result: waiting water"
 	quality_label.text = _get_result_context()
 	return "The lure rests in the water. No bite yet, but this is fishable water. %s." % _get_result_context()
+
+
+func _resolve_bite_signal_cast() -> String:
+	var entry := "Cast %d: bite signaled (%s)." % [cast_count, _get_result_context()]
+	_record_journal(entry)
+	result_label.text = "Latest result: bite signaled"
+	quality_label.text = _get_result_context()
+	return "Something tapped the lure. Next step: set the hook. %s." % _get_result_context()
 
 
 func _record_journal(entry: String) -> void:
@@ -229,6 +239,11 @@ func _get_waiting_for_bite_duration() -> float:
 	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_waiting_for_bite_duration"):
 		return spatial_casting_provider.call("get_waiting_for_bite_duration") as float
 	return 0.85
+
+
+func _trigger_bite_feedback() -> void:
+	if spatial_casting_provider != null and spatial_casting_provider.has_method("trigger_bite_feedback"):
+		spatial_casting_provider.call("trigger_bite_feedback")
 
 
 func _get_result_context() -> String:
