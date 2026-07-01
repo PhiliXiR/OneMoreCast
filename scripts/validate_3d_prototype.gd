@@ -210,7 +210,7 @@ func _validate_rod_and_line(world: Node) -> bool:
 		_fail("Aiming line endpoint should preview the cast target")
 		return false
 	var line_points: Array = spatial_casting.call("get_line_points_world") as Array
-	if line_points.size() < 5:
+	if line_points.size() < 12:
 		_fail("Fishing line should expose enough world points for sagging line rendering")
 		return false
 	if not (spatial_casting.call("is_line_showing_valid_feedback") as bool):
@@ -252,7 +252,7 @@ func _validate_rod_and_line(world: Node) -> bool:
 		_fail("Fishing line endpoint should follow the moving lure during cast")
 		return false
 	line_points = spatial_casting.call("get_line_points_world") as Array
-	if line_points.size() < 6:
+	if line_points.size() < 16:
 		_fail("Casting fishing line should expose a multi-point unrolling loop")
 		return false
 	if lure_marker.global_position.distance_to(rod_tip.global_position) < 0.5:

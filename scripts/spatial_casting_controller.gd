@@ -340,31 +340,44 @@ func _build_casting_line_points(start: Vector3, lure_position: Vector3, cast_dir
 
 	var unroll := sin(progress * PI)
 	var trailing_pull := (1.0 - progress) * 0.75
-	var loop_height := 0.35 + arc_height * 0.28 + unroll * 0.65
-	var side_sway := sin(progress * TAU) * 0.32
-	var lure_lag := cast_direction * trailing_pull
+	var loop_height := 0.45 + arc_height * 0.34 + unroll * 0.75
+	var point_count := 17
+	var points: Array[Vector3] = []
+	for index in point_count:
+		var t := float(index) / float(point_count - 1)
+		var point := start.lerp(lure_position, t)
+		var wave := sin((t * 1.35 - progress * 1.8) * TAU)
+		var loop_envelope := sin(t * PI)
+		var lead_lag := (1.0 - t) * trailing_pull
+		var forward_lag := -cast_direction * lead_lag
+		var vertical_loop := Vector3.UP * loop_height * loop_envelope * (1.0 - t * 0.45)
+		var side_loop := right * wave * loop_envelope * (0.12 + unroll * 0.34)
+		var gravity_sag := Vector3.DOWN * pow(t, 1.35) * (0.08 + progress * 0.18)
+		points.append(point + forward_lag + vertical_loop + side_loop + gravity_sag)
 
-	return [
-		start,
-		start.lerp(lure_position, 0.18) - cast_direction * (0.42 + trailing_pull) + Vector3.UP * (0.55 + loop_height * 0.65),
-		start.lerp(lure_position, 0.36) - cast_direction * (0.24 + trailing_pull * 0.5) + right * side_sway + Vector3.UP * loop_height,
-		start.lerp(lure_position, 0.58) + right * (side_sway * 0.55) + Vector3.UP * (arc_height * 0.25 + 0.22),
-		start.lerp(lure_position, 0.82) - lure_lag * 0.2 + Vector3.UP * 0.08,
-		lure_position,
-	]
+	points[0] = start
+	points[points.size() - 1] = lure_position
+	return points
 
 
 func _build_sagging_line_points(start: Vector3, end: Vector3, sag_amount: float, lateral_sway: float) -> Array[Vector3]:
 	var direction := end - start
 	var planar_direction := Vector3(direction.x, 0.0, direction.z)
 	var right := planar_direction.normalized().cross(Vector3.UP).normalized() if planar_direction.length_squared() > 0.0001 else Vector3.RIGHT
-	return [
-		start,
-		start.lerp(end, 0.25) + Vector3.DOWN * sag_amount * 0.35 + right * lateral_sway,
-		start.lerp(end, 0.52) + Vector3.DOWN * sag_amount,
-		start.lerp(end, 0.78) + Vector3.DOWN * sag_amount * 0.45 - right * lateral_sway * 0.55,
-		end,
-	]
+	var point_count := 13
+	var points: Array[Vector3] = []
+	for index in point_count:
+		var t := float(index) / float(point_count - 1)
+		var sag_curve := sin(t * PI)
+		var sway_curve := sin(t * TAU)
+		var point := start.lerp(end, t)
+		point += Vector3.DOWN * sag_amount * sag_curve
+		point += right * lateral_sway * sway_curve * sag_curve
+		points.append(point)
+
+	points[0] = start
+	points[points.size() - 1] = end
+	return points
 
 
 func _get_camera_3d() -> Camera3D:
