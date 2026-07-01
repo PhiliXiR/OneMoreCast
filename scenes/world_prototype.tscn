@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=22 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -41,6 +41,20 @@ height = 0.36
 [sub_resource type="SphereMesh" id="SphereMesh_lure"]
 radius = 0.12
 height = 0.24
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_ripple_outer"]
+top_radius = 0.52
+bottom_radius = 0.52
+height = 0.025
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_ripple_inner"]
+top_radius = 0.28
+bottom_radius = 0.28
+height = 0.03
+
+[sub_resource type="SphereMesh" id="SphereMesh_miss_puff"]
+radius = 0.18
+height = 0.36
 
 [node name="WorldPrototype" type="Node3D"]
 
@@ -105,6 +119,19 @@ mesh = SubResource("SphereMesh_target_top")
 visible = false
 mesh = SubResource("SphereMesh_lure")
 
+[node name="LandingFeedback" type="Node3D" parent="."]
+visible = false
+
+[node name="WaterRippleOuter" type="MeshInstance3D" parent="LandingFeedback"]
+mesh = SubResource("CylinderMesh_ripple_outer")
+
+[node name="WaterRippleInner" type="MeshInstance3D" parent="LandingFeedback"]
+mesh = SubResource("CylinderMesh_ripple_inner")
+
+[node name="MissPuff" type="MeshInstance3D" parent="LandingFeedback"]
+visible = false
+mesh = SubResource("SphereMesh_miss_puff")
+
 [node name="FishingLine" type="MeshInstance3D" parent="."]
 visible = false
 
@@ -130,6 +157,7 @@ rod_root_path = NodePath("../PlayerRig/VisualRoot/RodRoot")
 rod_tip_path = NodePath("../PlayerRig/VisualRoot/RodRoot/RodTip")
 fishing_line_path = NodePath("../FishingLine")
 line_overlay_path = NodePath("../LineOverlayLayer/FishingLineOverlay")
+landing_feedback_path = NodePath("../LandingFeedback")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 7, -3)

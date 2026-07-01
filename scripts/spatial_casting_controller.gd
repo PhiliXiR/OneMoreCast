@@ -10,6 +10,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @export var rod_tip_path: NodePath
 @export var fishing_line_path: NodePath
 @export var line_overlay_path: NodePath
+@export var landing_feedback_path: NodePath
 @export var water_center := Vector3(0.0, 0.0, 10.0)
 @export var water_size := Vector2(28.0, 16.0)
 @export var cast_distance := 8.0
@@ -25,6 +26,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @onready var rod_tip: Node3D = get_node_or_null(rod_tip_path) as Node3D
 @onready var fishing_line: MeshInstance3D = get_node_or_null(fishing_line_path) as MeshInstance3D
 @onready var line_overlay: Line2D = get_node_or_null(line_overlay_path) as Line2D
+@onready var landing_feedback: Node3D = get_node_or_null(landing_feedback_path) as Node3D
 
 var target_point := Vector3.ZERO
 var target_valid := false
@@ -35,6 +37,8 @@ var last_landing_label := "No cast yet"
 var _valid_material := StandardMaterial3D.new()
 var _invalid_material := StandardMaterial3D.new()
 var _lure_material := StandardMaterial3D.new()
+var _water_feedback_material := StandardMaterial3D.new()
+var _miss_feedback_material := StandardMaterial3D.new()
 var _phase := CastPhase.AIMING
 var _cast_elapsed := 0.0
 var _cast_duration := 0.72
@@ -47,6 +51,11 @@ var _last_line_end := Vector3.ZERO
 var _last_line_valid := false
 var _rod_rest_rotation := Vector3.ZERO
 var _rod_cast_rotation := Vector3.ZERO
+var _landing_feedback_elapsed := 0.0
+var _landing_feedback_duration := 0.9
+var _landing_feedback_visible := false
+var _landing_feedback_valid := false
+var _landing_feedback_label := "none"
 
 
 func _ready() -> void:
@@ -56,6 +65,8 @@ func _ready() -> void:
 	_configure_marker_material(_valid_material, Color(0.25, 1.0, 0.55, 1.0))
 	_configure_marker_material(_invalid_material, Color(1.0, 0.2, 0.1, 1.0))
 	_configure_marker_material(_lure_material, Color(1.0, 0.88, 0.25, 1.0))
+	_configure_feedback_material(_water_feedback_material, Color(0.65, 0.95, 1.0, 0.82))
+	_configure_feedback_material(_miss_feedback_material, Color(1.0, 0.38, 0.12, 0.82))
 	if lure_marker != null:
 		lure_marker.visible = false
 		lure_marker.material_override = _lure_material
@@ -67,6 +78,7 @@ func _ready() -> void:
 	if rod_root != null:
 		_rod_rest_rotation = rod_root.rotation
 		_rod_cast_rotation = _rod_rest_rotation
+	_configure_landing_feedback()
 
 
 func _process(delta: float) -> void:
@@ -83,6 +95,7 @@ func refresh_casting_visuals(delta := 0.0) -> void:
 		else:
 			_update_aiming_line()
 	_update_rod_motion()
+	_update_landing_feedback(delta)
 	_draw_projected_line()
 
 
@@ -115,6 +128,7 @@ func begin_cast() -> void:
 	lure_marker.visible = true
 	lure_marker.global_position = _cast_start
 	lure_marker.material_override = _lure_material
+	_hide_landing_feedback(true)
 	_update_cast_line(0.0)
 
 
@@ -136,6 +150,14 @@ func get_spatial_feedback() -> String:
 
 func get_result_context() -> String:
 	return "Landing quality: %s" % last_landing_label
+
+
+func get_landing_feedback_label() -> String:
+	return _landing_feedback_label
+
+
+func is_landing_feedback_visible() -> bool:
+	return _landing_feedback_visible
 
 
 func get_rod_tip_position() -> Vector3:
@@ -267,6 +289,7 @@ func _update_cast_motion(delta: float) -> void:
 	if progress >= 1.0:
 		_phase = CastPhase.LANDED_SLACK
 		_landed_elapsed = 0.0
+		_show_landing_feedback(_cast_destination, target_valid and player_near_water)
 		_update_landed_line(0.0)
 
 
@@ -413,6 +436,81 @@ func _update_rod_motion() -> void:
 	rod_root.rotation = _rod_cast_rotation
 
 
+func _configure_landing_feedback() -> void:
+	if landing_feedback == null:
+		return
+
+	landing_feedback.visible = false
+	var water_ripple_outer := landing_feedback.get_node_or_null("WaterRippleOuter") as MeshInstance3D
+	var water_ripple_inner := landing_feedback.get_node_or_null("WaterRippleInner") as MeshInstance3D
+	var miss_puff := landing_feedback.get_node_or_null("MissPuff") as MeshInstance3D
+	if water_ripple_outer != null:
+		water_ripple_outer.material_override = _water_feedback_material
+	if water_ripple_inner != null:
+		water_ripple_inner.material_override = _water_feedback_material
+	if miss_puff != null:
+		miss_puff.material_override = _miss_feedback_material
+
+
+func _show_landing_feedback(position: Vector3, landed_in_water: bool) -> void:
+	_landing_feedback_elapsed = 0.0
+	_landing_feedback_visible = landing_feedback != null
+	_landing_feedback_valid = landed_in_water
+	_landing_feedback_label = "water splash" if landed_in_water else "miss puff"
+	if landing_feedback == null:
+		return
+
+	landing_feedback.visible = true
+	landing_feedback.global_position = position + Vector3.UP * (0.03 if landed_in_water else 0.14)
+	_set_feedback_child_visible("WaterRippleOuter", landed_in_water)
+	_set_feedback_child_visible("WaterRippleInner", landed_in_water)
+	_set_feedback_child_visible("MissPuff", not landed_in_water)
+	_update_landing_feedback(0.0)
+
+
+func _hide_landing_feedback(reset_label := false) -> void:
+	_landing_feedback_elapsed = 0.0
+	_landing_feedback_visible = false
+	if reset_label:
+		_landing_feedback_label = "none"
+	if landing_feedback != null:
+		landing_feedback.visible = false
+
+
+func _set_feedback_child_visible(path: NodePath, is_visible: bool) -> void:
+	if landing_feedback == null:
+		return
+	var child := landing_feedback.get_node_or_null(path) as Node3D
+	if child != null:
+		child.visible = is_visible
+
+
+func _update_landing_feedback(delta: float) -> void:
+	if not _landing_feedback_visible or landing_feedback == null:
+		return
+
+	_landing_feedback_elapsed += delta
+	var progress := clampf(_landing_feedback_elapsed / _landing_feedback_duration, 0.0, 1.0)
+	var fade := 1.0 - progress
+	if _landing_feedback_valid:
+		var outer := landing_feedback.get_node_or_null("WaterRippleOuter") as Node3D
+		var inner := landing_feedback.get_node_or_null("WaterRippleInner") as Node3D
+		if outer != null:
+			outer.scale = Vector3.ONE * lerpf(0.35, 1.9, progress)
+		if inner != null:
+			inner.scale = Vector3.ONE * lerpf(0.18, 1.0, progress)
+		_water_feedback_material.albedo_color.a = 0.82 * fade
+	else:
+		var puff := landing_feedback.get_node_or_null("MissPuff") as Node3D
+		if puff != null:
+			puff.scale = Vector3.ONE * lerpf(0.5, 1.25, progress)
+			puff.position.y = lerpf(0.0, 0.22, progress)
+		_miss_feedback_material.albedo_color.a = 0.82 * fade
+
+	if progress >= 1.0:
+		_hide_landing_feedback()
+
+
 func _ease_out_cubic(value: float) -> float:
 	return 1.0 - pow(1.0 - value, 3.0)
 
@@ -424,6 +522,15 @@ func _configure_marker_material(material: StandardMaterial3D, color: Color) -> v
 	material.emission = color
 	material.emission_energy_multiplier = 1.4
 	material.no_depth_test = true
+
+
+func _configure_feedback_material(material: StandardMaterial3D, color: Color) -> void:
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = color
+	material.emission_enabled = true
+	material.emission = Color(color.r, color.g, color.b, 1.0)
+	material.emission_energy_multiplier = 0.9
 
 
 func _apply_marker_material(root: Node, material: StandardMaterial3D) -> void:

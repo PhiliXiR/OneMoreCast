@@ -40,6 +40,14 @@ func _run_validation() -> void:
 		return
 	if not _require_node(world, "LureMarker"):
 		return
+	if not _require_node(world, "LandingFeedback"):
+		return
+	if not _require_node(world, "LandingFeedback/WaterRippleOuter"):
+		return
+	if not _require_node(world, "LandingFeedback/WaterRippleInner"):
+		return
+	if not _require_node(world, "LandingFeedback/MissPuff"):
+		return
 	if not _require_node(world, "FishingLine"):
 		return
 	if not _require_node(world, "LineOverlayLayer/FishingLineOverlay"):
@@ -142,6 +150,8 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"is_line_showing_valid_feedback",
 		"is_world_line_disabled",
 		"get_rod_cast_motion_offset",
+		"get_landing_feedback_label",
+		"is_landing_feedback_visible",
 		"refresh_casting_visuals",
 	]:
 		if not spatial_casting.has_method(method):
@@ -262,7 +272,7 @@ func _validate_rod_and_line(world: Node) -> bool:
 		_fail("Lure should travel away from the rod during the cast arc")
 		return false
 
-	for frame in 12:
+	for frame in 2:
 		spatial_casting.call("refresh_casting_visuals", 0.08)
 		await process_frame
 
@@ -276,6 +286,16 @@ func _validate_rod_and_line(world: Node) -> bool:
 			% [lure_marker.global_position, target_point + Vector3.UP * 0.12, target_point]
 		)
 		return false
+	if not (spatial_casting.call("is_landing_feedback_visible") as bool):
+		_fail("Water landing feedback should be visible as the lure lands")
+		return false
+	if spatial_casting.call("get_landing_feedback_label") as String != "water splash":
+		_fail("Water landing should register water splash feedback")
+		return false
+	var landing_feedback := world.get_node("LandingFeedback") as Node3D
+	if landing_feedback.global_position.distance_to(target_point + Vector3.UP * 0.15) > 0.35:
+		_fail("Landing feedback should appear at the lure landing point")
+		return false
 
 	for frame in 18:
 		spatial_casting.call("refresh_casting_visuals", 0.08)
@@ -283,6 +303,23 @@ func _validate_rod_and_line(world: Node) -> bool:
 	if spatial_casting.call("get_line_state_label") as String != "taut":
 		_fail("Fishing line should transition to taut after the landed slack settles")
 		return false
+
+	spatial_casting.set("water_center", Vector3(100.0, original_water_center.y, 100.0))
+	spatial_casting.call("refresh_casting_visuals")
+	await process_frame
+	spatial_casting.call("begin_cast")
+	for frame in 10:
+		spatial_casting.call("refresh_casting_visuals", 0.08)
+		await process_frame
+	if not (spatial_casting.call("is_landing_feedback_visible") as bool):
+		_fail("Off-water landing feedback should be visible as the lure lands")
+		return false
+	if spatial_casting.call("get_landing_feedback_label") as String != "miss puff":
+		_fail("Off-water landing should register miss puff feedback")
+		return false
+	spatial_casting.set("water_center", original_water_center)
+	spatial_casting.call("refresh_casting_visuals")
+	await process_frame
 
 	return true
 
