@@ -254,8 +254,9 @@ func _format_quality(quality: float) -> String:
 
 func _update_aiming_line() -> void:
 	var start := get_rod_tip_position()
-	var end := target_point + Vector3.UP * 0.12
-	var points := _build_sagging_line_points(start, end, 0.22, 0.0)
+	var forward := _get_cast_direction()
+	var end := start + forward * 0.42 + Vector3.DOWN * 0.34
+	var points := _build_sagging_line_points(start, end, 0.18, 0.035)
 	_set_line_points(points, target_valid and player_near_water)
 
 

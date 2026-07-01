@@ -206,8 +206,11 @@ func _validate_rod_and_line(world: Node) -> bool:
 
 	var target_point: Vector3 = spatial_casting.call("get_target_point") as Vector3
 	var line_endpoint: Vector3 = spatial_casting.call("get_line_endpoint") as Vector3
-	if line_endpoint.distance_to(target_point + Vector3.UP * 0.12) > 0.1:
-		_fail("Aiming line endpoint should preview the cast target")
+	if line_endpoint.distance_to(target_point + Vector3.UP * 0.12) < 1.0:
+		_fail("Aiming line endpoint should not extend to the cast target before casting")
+		return false
+	if line_endpoint.distance_to(rod_tip.global_position) > 1.0:
+		_fail("Aiming line should stay near the rod before casting")
 		return false
 	var line_points: Array = spatial_casting.call("get_line_points_world") as Array
 	if line_points.size() < 12:
