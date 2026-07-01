@@ -1,11 +1,15 @@
 extends Node3D
 
+enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
+
 @export var player_path: NodePath
 @export var camera_path: NodePath
 @export var target_marker_path: NodePath
 @export var lure_marker_path: NodePath
+@export var rod_root_path: NodePath
 @export var rod_tip_path: NodePath
 @export var fishing_line_path: NodePath
+@export var line_overlay_path: NodePath
 @export var water_center := Vector3(0.0, 0.0, 10.0)
 @export var water_size := Vector2(28.0, 16.0)
 @export var cast_distance := 8.0
@@ -17,8 +21,10 @@ extends Node3D
 @onready var camera: Node = get_node_or_null(camera_path)
 @onready var target_marker: Node3D = get_node_or_null(target_marker_path) as Node3D
 @onready var lure_marker: MeshInstance3D = get_node_or_null(lure_marker_path) as MeshInstance3D
+@onready var rod_root: Node3D = get_node_or_null(rod_root_path) as Node3D
 @onready var rod_tip: Node3D = get_node_or_null(rod_tip_path) as Node3D
 @onready var fishing_line: MeshInstance3D = get_node_or_null(fishing_line_path) as MeshInstance3D
+@onready var line_overlay: Line2D = get_node_or_null(line_overlay_path) as Line2D
 
 var target_point := Vector3.ZERO
 var target_valid := false
@@ -29,44 +35,53 @@ var last_landing_label := "No cast yet"
 var _valid_material := StandardMaterial3D.new()
 var _invalid_material := StandardMaterial3D.new()
 var _lure_material := StandardMaterial3D.new()
-var _line_valid_material := StandardMaterial3D.new()
-var _line_invalid_material := StandardMaterial3D.new()
-var _cast_line_locked_to_lure := false
+var _phase := CastPhase.AIMING
+var _cast_elapsed := 0.0
+var _cast_duration := 0.72
+var _cast_start := Vector3.ZERO
+var _cast_destination := Vector3.ZERO
+var _landed_elapsed := 0.0
+var _line_points_world: Array[Vector3] = []
 var _last_line_start := Vector3.ZERO
 var _last_line_end := Vector3.ZERO
 var _last_line_valid := false
+var _rod_rest_rotation := Vector3.ZERO
 
 
 func _ready() -> void:
 	_valid_material.albedo_color = Color(0.25, 0.9, 0.55, 0.85)
 	_invalid_material.albedo_color = Color(1.0, 0.25, 0.2, 0.85)
 	_lure_material.albedo_color = Color(1.0, 0.88, 0.3, 1.0)
-	_line_valid_material.albedo_color = Color(0.25, 0.95, 0.55, 1.0)
-	_line_invalid_material.albedo_color = Color(1.0, 0.25, 0.2, 1.0)
 	_configure_marker_material(_valid_material, Color(0.25, 1.0, 0.55, 1.0))
 	_configure_marker_material(_invalid_material, Color(1.0, 0.2, 0.1, 1.0))
 	_configure_marker_material(_lure_material, Color(1.0, 0.88, 0.25, 1.0))
-	_configure_marker_material(_line_valid_material, Color(0.25, 1.0, 0.55, 1.0))
-	_configure_marker_material(_line_invalid_material, Color(1.0, 0.2, 0.1, 1.0))
 	if lure_marker != null:
 		lure_marker.visible = false
 		lure_marker.material_override = _lure_material
 	if fishing_line != null:
-		var line_mesh := CylinderMesh.new()
-		line_mesh.top_radius = 0.018
-		line_mesh.bottom_radius = 0.018
-		line_mesh.height = 1.0
-		fishing_line.mesh = line_mesh
 		fishing_line.visible = false
+	if line_overlay != null:
+		line_overlay.visible = false
+		line_overlay.width = 1.35
+	if rod_root != null:
+		_rod_rest_rotation = rod_root.rotation
 
 
-func _process(_delta: float) -> void:
-	refresh_casting_visuals()
+func _process(delta: float) -> void:
+	refresh_casting_visuals(delta)
 
 
-func refresh_casting_visuals() -> void:
-	_update_cast_target()
-	_update_fishing_line()
+func refresh_casting_visuals(delta := 0.0) -> void:
+	if _phase == CastPhase.CASTING:
+		_update_cast_motion(delta)
+	else:
+		_update_cast_target()
+		if _phase == CastPhase.LANDED_SLACK or _phase == CastPhase.LANDED_TAUT:
+			_update_landed_line(delta)
+		else:
+			_update_aiming_line()
+	_update_rod_motion()
+	_draw_projected_line()
 
 
 func can_start_cast() -> bool:
@@ -87,7 +102,18 @@ func begin_cast() -> void:
 	_update_cast_target()
 	last_landing_quality = _calculate_landing_quality(target_point)
 	last_landing_label = _format_quality(last_landing_quality)
-	_animate_lure()
+	if lure_marker == null:
+		return
+
+	_phase = CastPhase.CASTING
+	_cast_elapsed = 0.0
+	_landed_elapsed = 0.0
+	_cast_start = get_rod_tip_position()
+	_cast_destination = target_point + Vector3.UP * 0.12
+	lure_marker.visible = true
+	lure_marker.global_position = _cast_start
+	lure_marker.material_override = _lure_material
+	_update_cast_line(0.0)
 
 
 func get_landing_quality() -> float:
@@ -98,7 +124,12 @@ func get_spatial_feedback() -> String:
 	_update_cast_target()
 	var near_text := "near water" if player_near_water else "too far from water"
 	var target_text := "target valid" if target_valid else "target off water"
-	return "Spatial: %s, %s, landing %s" % [near_text, target_text, last_landing_label]
+	return "Spatial: %s, %s, line %s, landing %s" % [
+		near_text,
+		target_text,
+		get_line_state_label(),
+		last_landing_label,
+	]
 
 
 func get_result_context() -> String:
@@ -115,8 +146,40 @@ func get_line_endpoint() -> Vector3:
 	return _last_line_end
 
 
+func get_line_points_world() -> Array[Vector3]:
+	return _line_points_world.duplicate()
+
+
+func get_line_state_label() -> String:
+	match _phase:
+		CastPhase.CASTING:
+			return "casting"
+		CastPhase.LANDED_SLACK:
+			return "slack"
+		CastPhase.LANDED_TAUT:
+			return "taut"
+		_:
+			return "aiming"
+
+
+func get_line_overlay_width() -> float:
+	if line_overlay == null:
+		return 0.0
+	return line_overlay.width
+
+
 func is_line_showing_valid_feedback() -> bool:
 	return _last_line_valid
+
+
+func is_world_line_disabled() -> bool:
+	return fishing_line == null or not fishing_line.visible
+
+
+func get_rod_cast_motion_offset() -> float:
+	if rod_root == null:
+		return 0.0
+	return rod_root.rotation.x - _rod_rest_rotation.x
 
 
 func _update_cast_target() -> void:
@@ -187,56 +250,118 @@ func _format_quality(quality: float) -> String:
 	return "invalid"
 
 
-func _animate_lure() -> void:
-	if lure_marker == null or player == null:
+func _update_aiming_line() -> void:
+	var start := get_rod_tip_position()
+	var end := target_point + Vector3.UP * 0.12
+	var mid := start.lerp(end, 0.58) + Vector3.UP * 0.35
+	_set_line_points([start, mid, end], target_valid and player_near_water)
+
+
+func _update_cast_motion(delta: float) -> void:
+	_cast_elapsed += delta
+	var progress := clampf(_cast_elapsed / _cast_duration, 0.0, 1.0)
+	_update_cast_line(progress)
+	if progress >= 1.0:
+		_phase = CastPhase.LANDED_SLACK
+		_landed_elapsed = 0.0
+		_update_landed_line(0.0)
+
+
+func _update_cast_line(progress: float) -> void:
+	if lure_marker == null:
 		return
 
-	_cast_line_locked_to_lure = true
-	lure_marker.visible = true
-	lure_marker.global_position = get_rod_tip_position()
-	lure_marker.material_override = _lure_material
-	var tween := create_tween()
-	tween.tween_property(lure_marker, "global_position", target_point + Vector3.UP * 0.12, 0.45)
+	var eased := _ease_out_cubic(progress)
+	var lure_position := _cast_start.lerp(_cast_destination, eased)
+	var arc_height := sin(progress * PI) * 2.0
+	lure_position += Vector3.UP * arc_height
+	lure_marker.global_position = lure_position
+
+	var start := get_rod_tip_position()
+	var trailing := start.lerp(lure_position, 0.45) + Vector3.UP * (0.45 + arc_height * 0.25)
+	_set_line_points([start, trailing, lure_position], target_valid and player_near_water)
 
 
-func _update_fishing_line() -> void:
-	if fishing_line == null or rod_tip == null:
-		return
+func _update_landed_line(delta: float) -> void:
+	_landed_elapsed += delta
+	if _landed_elapsed > 1.15:
+		_phase = CastPhase.LANDED_TAUT
 
-	var line_start := rod_tip.global_position
-	var line_end := target_point + Vector3.UP * 0.12
-	if _cast_line_locked_to_lure and lure_marker != null:
-		line_end = lure_marker.global_position
+	var start := get_rod_tip_position()
+	var end := _cast_destination
+	if lure_marker != null:
+		end = lure_marker.global_position
 
-	var line_valid := target_valid and player_near_water
-	_draw_line_segment(line_start, line_end, line_valid)
+	var slack_amount := 0.65 if _phase == CastPhase.LANDED_SLACK else 0.12
+	var mid := start.lerp(end, 0.55) + Vector3.DOWN * slack_amount
+	_set_line_points([start, mid, end], target_valid and player_near_water)
 
 
-func _draw_line_segment(line_start: Vector3, line_end: Vector3, line_valid: bool) -> void:
-	var length := line_start.distance_to(line_end)
-	if length <= 0.01:
-		fishing_line.visible = false
-		return
-
-	var direction := (line_end - line_start).normalized()
-	var midpoint := line_start.lerp(line_end, 0.5)
-	fishing_line.visible = true
-	fishing_line.global_transform = Transform3D(_basis_from_y_axis(direction), midpoint)
-	fishing_line.scale = Vector3(1.0, length, 1.0)
-	fishing_line.material_override = _line_valid_material if line_valid else _line_invalid_material
-	_last_line_start = line_start
-	_last_line_end = line_end
+func _set_line_points(points: Array[Vector3], line_valid: bool) -> void:
+	_line_points_world = points.duplicate()
+	if points.is_empty():
+		_last_line_start = Vector3.ZERO
+		_last_line_end = Vector3.ZERO
+	else:
+		_last_line_start = points.front()
+		_last_line_end = points.back()
 	_last_line_valid = line_valid
 
 
-func _basis_from_y_axis(y_axis: Vector3) -> Basis:
-	var up := y_axis.normalized()
-	var side := Vector3.FORWARD.cross(up)
-	if side.length_squared() <= 0.0001:
-		side = Vector3.RIGHT.cross(up)
-	side = side.normalized()
-	var forward := up.cross(side).normalized()
-	return Basis(side, up, forward)
+func _draw_projected_line() -> void:
+	if line_overlay == null:
+		return
+
+	var camera_3d := _get_camera_3d()
+	if camera_3d == null or _line_points_world.size() < 2:
+		line_overlay.visible = false
+		return
+
+	var projected := PackedVector2Array()
+	for point in _line_points_world:
+		if camera_3d.is_position_behind(point):
+			line_overlay.visible = false
+			return
+		projected.append(camera_3d.unproject_position(point))
+
+	line_overlay.points = projected
+	line_overlay.default_color = Color(0.82, 1.0, 0.78, 0.92) if _last_line_valid else Color(1.0, 0.35, 0.28, 0.92)
+	line_overlay.visible = true
+
+
+func _get_camera_3d() -> Camera3D:
+	if camera is Camera3D:
+		return camera as Camera3D
+	if camera != null:
+		var child_camera := camera.get_node_or_null("Camera3D") as Camera3D
+		if child_camera != null:
+			return child_camera
+	return get_viewport().get_camera_3d()
+
+
+func _update_rod_motion() -> void:
+	if rod_root == null:
+		return
+
+	var offset := 0.0
+	if _phase == CastPhase.CASTING:
+		var progress := clampf(_cast_elapsed / _cast_duration, 0.0, 1.0)
+		if progress < 0.28:
+			offset = lerpf(0.0, 0.65, progress / 0.28)
+		elif progress < 0.58:
+			offset = lerpf(0.65, -0.52, (progress - 0.28) / 0.3)
+		else:
+			offset = lerpf(-0.52, 0.12, (progress - 0.58) / 0.42)
+	elif _phase == CastPhase.LANDED_SLACK:
+		offset = 0.1
+	elif _phase == CastPhase.LANDED_TAUT:
+		offset = -0.08
+
+	rod_root.rotation = _rod_rest_rotation + Vector3(offset, 0.0, 0.0)
+
+
+func _ease_out_cubic(value: float) -> float:
+	return 1.0 - pow(1.0 - value, 3.0)
 
 
 func _configure_marker_material(material: StandardMaterial3D, color: Color) -> void:
