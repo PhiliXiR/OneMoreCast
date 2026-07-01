@@ -6,6 +6,7 @@ const INPUT_ACTIONS := [
 	&"move_backward",
 	&"move_left",
 	&"move_right",
+	&"set_hook",
 ]
 
 
@@ -401,6 +402,7 @@ func _validate_camera_input(camera: Node) -> bool:
 func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	var cast_button := casting_ui.get_node("ActionPanel/Layout/CastButton") as Button
 	var state_label := casting_ui.get_node("ActionPanel/Layout/StateLabel") as Label
+	var result_label := casting_ui.get_node("ActionPanel/Layout/ResultLabel") as Label
 	var button_center := cast_button.get_global_rect().get_center()
 	var mouse_press := InputEventMouseButton.new()
 	mouse_press.button_index = MOUSE_BUTTON_LEFT
@@ -433,6 +435,12 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if not saw_waiting:
 		_fail("Cast loop did not enter waiting-for-bite after the lure landed")
 		return false
+	_push_action(&"set_hook", true)
+	_push_action(&"set_hook", false)
+	await create_timer(0.05).timeout
+	if state_label.text != "State: waiting":
+		_fail("Hook input before the bite window should not leave waiting state")
+		return false
 	var saw_bite := false
 	for frame in 60:
 		await create_timer(0.05).timeout
@@ -445,7 +453,29 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if not saw_bite:
 		_fail("Cast loop did not enter bite state after waiting-for-bite")
 		return false
+	if cast_button.text != "Set Hook" or cast_button.disabled:
+		_fail("Cast button should become an enabled Set Hook action during the bite window")
+		return false
+	_push_action(&"set_hook", true)
+	_push_action(&"set_hook", false)
+	for frame in 40:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: result":
+			break
+	if state_label.text != "State: result":
+		_fail("Hook-set input should resolve the bite into a result state")
+		return false
+	if not result_label.text.contains("hook set"):
+		_fail("Hook-set input during the bite window should produce a hook-set result")
+		return false
 	return true
+
+
+func _push_action(action: StringName, pressed: bool) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = pressed
+	root.push_input(event)
 
 
 func _fail(message: String) -> void:

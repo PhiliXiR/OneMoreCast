@@ -41,12 +41,14 @@ var inventory := {}
 var journal: Array[String] = []
 var rng := RandomNumberGenerator.new()
 var spatial_casting_provider: Node
+var hook_set := false
+var bite_window_open := false
 
 
 func _ready() -> void:
 	rng.randomize()
 	spatial_casting_provider = get_node_or_null(spatial_casting_provider_path)
-	cast_button.pressed.connect(_on_cast_pressed)
+	cast_button.pressed.connect(_on_action_pressed)
 	_update_view("The water is quiet. Make the first cast.")
 
 
@@ -60,21 +62,32 @@ func _input(event: InputEvent) -> void:
 		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
 			if cast_button.get_global_rect().has_point(mouse_event.position):
 				get_viewport().set_input_as_handled()
-				_on_cast_pressed()
+				_on_action_pressed()
+	if event.is_action_pressed(&"set_hook"):
+		_try_set_hook()
 
 
-func _on_cast_pressed() -> void:
-	if state != CastState.READY:
+func _on_action_pressed() -> void:
+	if state == CastState.BITE:
+		_try_set_hook()
 		return
 
+	if state != CastState.READY:
+		return
+	await _start_cast()
+
+
+func _start_cast() -> void:
 	if not _can_start_spatial_cast():
 		_update_view(_get_spatial_block_reason())
 		return
 
 	cast_count += 1
 	cast_button.disabled = true
+	cast_button.text = "Cast"
 	await _run_cast_sequence()
 	cast_button.disabled = false
+	cast_button.text = "Cast"
 
 
 func _run_cast_sequence() -> void:
@@ -102,10 +115,19 @@ func _run_cast_sequence() -> void:
 		wait_duration
 	)
 	_trigger_bite_feedback()
-	await _advance(CastState.BITE, "A sharp twitch snaps through the line.", 0.75)
+	hook_set = false
+	bite_window_open = true
+	state = CastState.BITE
+	cast_button.disabled = false
+	cast_button.text = "Set Hook"
+	_update_view("A sharp twitch snaps through the line. Set the hook!")
+	await get_tree().create_timer(0.75).timeout
+	bite_window_open = false
+	cast_button.disabled = true
+	cast_button.text = "Cast"
 
 	state = CastState.RESULT
-	var result_message := _resolve_bite_signal_cast()
+	var result_message := _resolve_hook_outcome()
 	_update_view(result_message)
 
 	await get_tree().create_timer(0.9).timeout
@@ -161,6 +183,34 @@ func _resolve_bite_signal_cast() -> String:
 	result_label.text = "Latest result: bite signaled"
 	quality_label.text = _get_result_context()
 	return "Something tapped the lure. Next step: set the hook. %s." % _get_result_context()
+
+
+func _resolve_hook_outcome() -> String:
+	if hook_set:
+		var entry := "Cast %d: hook set (%s)." % [cast_count, _get_result_context()]
+		_record_journal(entry)
+		result_label.text = "Latest result: hook set"
+		quality_label.text = _get_result_context()
+		return "Hook set. Something is on the line. %s." % _get_result_context()
+
+	var miss_entry := "Cast %d: missed the hook set (%s)." % [cast_count, _get_result_context()]
+	_record_journal(miss_entry)
+	result_label.text = "Latest result: missed bite"
+	quality_label.text = _get_result_context()
+	return "The twitch slips away before you set the hook. %s." % _get_result_context()
+
+
+func _try_set_hook() -> void:
+	if state == CastState.BITE and bite_window_open:
+		hook_set = true
+		bite_window_open = false
+		cast_button.disabled = true
+		cast_button.text = "Cast"
+		_update_view("You snap the rod back and set the hook.")
+		return
+
+	if state == CastState.WAITING:
+		_update_view("Too early. Wait for a bite before setting the hook.")
 
 
 func _record_journal(entry: String) -> void:
