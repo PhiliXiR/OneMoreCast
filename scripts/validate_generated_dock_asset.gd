@@ -1,6 +1,6 @@
 extends SceneTree
 
-const DOCK_SCENE := "res://assets/_review/generated/issue-44-procedural-dock/dock_straight_01.glb"
+const DOCK_REVIEW_PATH := "assets/_review/generated/issue-44-procedural-dock/dock_straight_01.glb"
 
 
 func _initialize() -> void:
@@ -8,20 +8,21 @@ func _initialize() -> void:
 
 
 func _run_validation() -> void:
-	if not FileAccess.file_exists(DOCK_SCENE):
-		_fail("Missing generated dock GLB: %s" % DOCK_SCENE)
+	var dock_file := ProjectSettings.globalize_path("res://%s" % DOCK_REVIEW_PATH)
+	if not FileAccess.file_exists(dock_file):
+		_fail("Missing generated dock GLB: %s" % dock_file)
 		return
 
 	var document := GLTFDocument.new()
 	var state := GLTFState.new()
-	var error := document.append_from_file(DOCK_SCENE, state)
+	var error := document.append_from_file(dock_file, state)
 	if error != OK:
-		_fail("Could not parse %s: error %d" % [DOCK_SCENE, error])
+		_fail("Could not parse %s: error %d" % [dock_file, error])
 		return
 
 	var dock := document.generate_scene(state)
 	if dock == null:
-		_fail("Could not generate scene from %s" % DOCK_SCENE)
+		_fail("Could not generate scene from %s" % dock_file)
 		return
 
 	root.add_child(dock)

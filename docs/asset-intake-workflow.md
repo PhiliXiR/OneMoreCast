@@ -12,6 +12,10 @@ produce or process those assets.
 - `assets/docks/`, `assets/foliage/`, `assets/fish/`, `assets/lures/`,
   `assets/props/`, `assets/materials/`: approved game-ready assets.
 
+`assets/_review/` contains source and candidate files for human review, so it
+has a `.gdignore` file and is not imported by the Godot editor. Promote only
+approved runtime assets into the normal asset folders.
+
 ## Intake Rules
 
 Disposable experiments stay in `assets/_scratch/` and are not committed.
@@ -21,7 +25,9 @@ active issue. Each review batch must include a manifest based on
 `docs/templates/asset-batch-manifest.md`.
 
 Approved assets move out of `_review` and into the appropriate game asset
-folder. Rejected batches may be removed in a cleanup commit.
+folder. Rejected batches may be removed in a cleanup commit. Keep `.blend`
+source files in review or source-art folders; do not place them in runtime
+asset folders unless the project Blender path is intentionally configured.
 
 ## LFS
 
