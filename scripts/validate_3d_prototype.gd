@@ -178,6 +178,7 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 
 func _validate_rod_and_line(world: Node) -> bool:
 	var spatial_casting := world.get_node("SpatialCasting")
+	var rod_root := world.get_node("PlayerRig/VisualRoot/RodRoot") as Node3D
 	var rod_mesh := world.get_node("PlayerRig/VisualRoot/RodRoot/RodMesh") as MeshInstance3D
 	var rod_tip := world.get_node("PlayerRig/VisualRoot/RodRoot/RodTip") as Node3D
 	var fishing_line_overlay := world.get_node("LineOverlayLayer/FishingLineOverlay") as Line2D
@@ -186,6 +187,9 @@ func _validate_rod_and_line(world: Node) -> bool:
 		return false
 	if rod_tip.global_position.distance_to(world.get_node("PlayerRig").global_position) < 1.0:
 		_fail("Fishing rod tip should be out in front of the player")
+		return false
+	if rod_root.rotation.x > -0.7:
+		_fail("Fishing rod should rest in a more upright ready pose")
 		return false
 
 	spatial_casting.call("refresh_casting_visuals")
@@ -206,8 +210,8 @@ func _validate_rod_and_line(world: Node) -> bool:
 		_fail("Aiming line endpoint should preview the cast target")
 		return false
 	var line_points: Array = spatial_casting.call("get_line_points_world") as Array
-	if line_points.size() < 3:
-		_fail("Fishing line should expose dynamic world points for curved rendering")
+	if line_points.size() < 5:
+		_fail("Fishing line should expose enough world points for sagging line rendering")
 		return false
 	if not (spatial_casting.call("is_line_showing_valid_feedback") as bool):
 		_fail("Fishing line should show valid feedback for the initial cast target")
@@ -246,6 +250,10 @@ func _validate_rod_and_line(world: Node) -> bool:
 	line_endpoint = spatial_casting.call("get_line_endpoint") as Vector3
 	if line_endpoint.distance_to(lure_marker.global_position) > 0.1:
 		_fail("Fishing line endpoint should follow the moving lure during cast")
+		return false
+	line_points = spatial_casting.call("get_line_points_world") as Array
+	if line_points.size() < 6:
+		_fail("Casting fishing line should expose a multi-point unrolling loop")
 		return false
 	if lure_marker.global_position.distance_to(rod_tip.global_position) < 0.5:
 		_fail("Lure should travel away from the rod during the cast arc")

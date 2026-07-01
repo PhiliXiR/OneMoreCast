@@ -46,6 +46,7 @@ var _last_line_start := Vector3.ZERO
 var _last_line_end := Vector3.ZERO
 var _last_line_valid := false
 var _rod_rest_rotation := Vector3.ZERO
+var _rod_cast_rotation := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -65,6 +66,7 @@ func _ready() -> void:
 		line_overlay.width = 1.35
 	if rod_root != null:
 		_rod_rest_rotation = rod_root.rotation
+		_rod_cast_rotation = _rod_rest_rotation
 
 
 func _process(delta: float) -> void:
@@ -253,8 +255,8 @@ func _format_quality(quality: float) -> String:
 func _update_aiming_line() -> void:
 	var start := get_rod_tip_position()
 	var end := target_point + Vector3.UP * 0.12
-	var mid := start.lerp(end, 0.58) + Vector3.UP * 0.35
-	_set_line_points([start, mid, end], target_valid and player_near_water)
+	var points := _build_sagging_line_points(start, end, 0.22, 0.0)
+	_set_line_points(points, target_valid and player_near_water)
 
 
 func _update_cast_motion(delta: float) -> void:
@@ -272,14 +274,16 @@ func _update_cast_line(progress: float) -> void:
 		return
 
 	var eased := _ease_out_cubic(progress)
+	var cast_vector := _cast_destination - _cast_start
+	var cast_direction := cast_vector.normalized() if cast_vector.length_squared() > 0.0001 else Vector3.FORWARD
 	var lure_position := _cast_start.lerp(_cast_destination, eased)
-	var arc_height := sin(progress * PI) * 2.0
+	var arc_height := sin(progress * PI) * 2.2
 	lure_position += Vector3.UP * arc_height
 	lure_marker.global_position = lure_position
 
 	var start := get_rod_tip_position()
-	var trailing := start.lerp(lure_position, 0.45) + Vector3.UP * (0.45 + arc_height * 0.25)
-	_set_line_points([start, trailing, lure_position], target_valid and player_near_water)
+	var line_points := _build_casting_line_points(start, lure_position, cast_direction, progress, arc_height)
+	_set_line_points(line_points, target_valid and player_near_water)
 
 
 func _update_landed_line(delta: float) -> void:
@@ -292,9 +296,9 @@ func _update_landed_line(delta: float) -> void:
 	if lure_marker != null:
 		end = lure_marker.global_position
 
-	var slack_amount := 0.65 if _phase == CastPhase.LANDED_SLACK else 0.12
-	var mid := start.lerp(end, 0.55) + Vector3.DOWN * slack_amount
-	_set_line_points([start, mid, end], target_valid and player_near_water)
+	var slack_amount := 0.75 if _phase == CastPhase.LANDED_SLACK else 0.14
+	var lateral_sway := 0.18 if _phase == CastPhase.LANDED_SLACK else 0.04
+	_set_line_points(_build_sagging_line_points(start, end, slack_amount, lateral_sway), target_valid and player_near_water)
 
 
 func _set_line_points(points: Array[Vector3], line_valid: bool) -> void:
@@ -329,6 +333,40 @@ func _draw_projected_line() -> void:
 	line_overlay.visible = true
 
 
+func _build_casting_line_points(start: Vector3, lure_position: Vector3, cast_direction: Vector3, progress: float, arc_height: float) -> Array[Vector3]:
+	var right := cast_direction.cross(Vector3.UP).normalized()
+	if right.length_squared() <= 0.0001:
+		right = Vector3.RIGHT
+
+	var unroll := sin(progress * PI)
+	var trailing_pull := (1.0 - progress) * 0.75
+	var loop_height := 0.35 + arc_height * 0.28 + unroll * 0.65
+	var side_sway := sin(progress * TAU) * 0.32
+	var lure_lag := cast_direction * trailing_pull
+
+	return [
+		start,
+		start.lerp(lure_position, 0.18) - cast_direction * (0.42 + trailing_pull) + Vector3.UP * (0.55 + loop_height * 0.65),
+		start.lerp(lure_position, 0.36) - cast_direction * (0.24 + trailing_pull * 0.5) + right * side_sway + Vector3.UP * loop_height,
+		start.lerp(lure_position, 0.58) + right * (side_sway * 0.55) + Vector3.UP * (arc_height * 0.25 + 0.22),
+		start.lerp(lure_position, 0.82) - lure_lag * 0.2 + Vector3.UP * 0.08,
+		lure_position,
+	]
+
+
+func _build_sagging_line_points(start: Vector3, end: Vector3, sag_amount: float, lateral_sway: float) -> Array[Vector3]:
+	var direction := end - start
+	var planar_direction := Vector3(direction.x, 0.0, direction.z)
+	var right := planar_direction.normalized().cross(Vector3.UP).normalized() if planar_direction.length_squared() > 0.0001 else Vector3.RIGHT
+	return [
+		start,
+		start.lerp(end, 0.25) + Vector3.DOWN * sag_amount * 0.35 + right * lateral_sway,
+		start.lerp(end, 0.52) + Vector3.DOWN * sag_amount,
+		start.lerp(end, 0.78) + Vector3.DOWN * sag_amount * 0.45 - right * lateral_sway * 0.55,
+		end,
+	]
+
+
 func _get_camera_3d() -> Camera3D:
 	if camera is Camera3D:
 		return camera as Camera3D
@@ -343,21 +381,22 @@ func _update_rod_motion() -> void:
 	if rod_root == null:
 		return
 
-	var offset := 0.0
+	var target_rotation := _rod_rest_rotation
 	if _phase == CastPhase.CASTING:
 		var progress := clampf(_cast_elapsed / _cast_duration, 0.0, 1.0)
 		if progress < 0.28:
-			offset = lerpf(0.0, 0.65, progress / 0.28)
+			target_rotation = _rod_rest_rotation + Vector3(lerpf(0.0, -0.42, progress / 0.28), 0.0, 0.0)
 		elif progress < 0.58:
-			offset = lerpf(0.65, -0.52, (progress - 0.28) / 0.3)
+			target_rotation = _rod_rest_rotation + Vector3(lerpf(-0.42, 0.88, (progress - 0.28) / 0.3), 0.0, 0.0)
 		else:
-			offset = lerpf(-0.52, 0.12, (progress - 0.58) / 0.42)
+			target_rotation = _rod_rest_rotation + Vector3(lerpf(0.88, 0.16, (progress - 0.58) / 0.42), 0.0, 0.0)
 	elif _phase == CastPhase.LANDED_SLACK:
-		offset = 0.1
+		target_rotation = _rod_rest_rotation + Vector3(0.12, 0.0, 0.0)
 	elif _phase == CastPhase.LANDED_TAUT:
-		offset = -0.08
+		target_rotation = _rod_rest_rotation + Vector3(0.03, 0.0, 0.0)
 
-	rod_root.rotation = _rod_rest_rotation + Vector3(offset, 0.0, 0.0)
+	_rod_cast_rotation = _rod_cast_rotation.lerp(target_rotation, 0.85)
+	rod_root.rotation = _rod_cast_rotation
 
 
 func _ease_out_cubic(value: float) -> float:

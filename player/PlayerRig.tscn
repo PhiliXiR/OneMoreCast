@@ -45,7 +45,7 @@ surface_material_override/0 = SubResource("StandardMaterial3D_player")
 
 [node name="RodRoot" type="Node3D" parent="VisualRoot"]
 position = Vector3(0.42, 1.25, -0.35)
-rotation = Vector3(-0.261799, 0.0872665, 0.0872665)
+rotation = Vector3(-0.95, 0.0872665, 0.0872665)
 
 [node name="RodMesh" type="MeshInstance3D" parent="VisualRoot/RodRoot"]
 position = Vector3(0, 0.18, -1.05)
