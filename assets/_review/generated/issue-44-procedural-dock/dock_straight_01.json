@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "generator": "modular_dock_generator",
+  "asset": {
+    "name": "dock_straight_01",
+    "type": "modular_dock_section",
+    "dimensions_meters": {
+      "length": 8.0,
+      "width": 2.5
+    },
+    "parameters": {
+      "plank_count": 12,
+      "post_count": 4,
+      "seed": 7
+    },
+    "object_count": 24
+  },
+  "outputs": {
+    "blend": "dock_straight_01.blend",
+    "glb": "dock_straight_01.glb",
+    "preview": "dock_straight_01_preview.png"
+  }
+}

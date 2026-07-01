@@ -225,6 +225,7 @@ func _validate_rod_and_line(world: Node) -> bool:
 	await process_frame
 
 	spatial_casting.call("begin_cast")
+	target_point = spatial_casting.call("get_target_point") as Vector3
 	var lure_marker := world.get_node("LureMarker") as MeshInstance3D
 	if spatial_casting.call("get_line_state_label") as String != "casting":
 		_fail("Fishing line should enter casting state after cast starts")
