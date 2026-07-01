@@ -188,7 +188,7 @@ func _validate_rod_and_line(world: Node) -> bool:
 	if rod_tip.global_position.distance_to(world.get_node("PlayerRig").global_position) < 1.0:
 		_fail("Fishing rod tip should be out in front of the player")
 		return false
-	if rod_root.rotation.x > -0.7:
+	if rod_root.rotation.x < 0.7:
 		_fail("Fishing rod should rest in a more upright ready pose")
 		return false
 

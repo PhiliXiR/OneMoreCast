@@ -385,15 +385,15 @@ func _update_rod_motion() -> void:
 	if _phase == CastPhase.CASTING:
 		var progress := clampf(_cast_elapsed / _cast_duration, 0.0, 1.0)
 		if progress < 0.28:
-			target_rotation = _rod_rest_rotation + Vector3(lerpf(0.0, -0.42, progress / 0.28), 0.0, 0.0)
+			target_rotation = _rod_rest_rotation + Vector3(lerpf(0.0, 0.28, progress / 0.28), 0.0, 0.0)
 		elif progress < 0.58:
-			target_rotation = _rod_rest_rotation + Vector3(lerpf(-0.42, 0.88, (progress - 0.28) / 0.3), 0.0, 0.0)
+			target_rotation = _rod_rest_rotation + Vector3(lerpf(0.28, -0.92, (progress - 0.28) / 0.3), 0.0, 0.0)
 		else:
-			target_rotation = _rod_rest_rotation + Vector3(lerpf(0.88, 0.16, (progress - 0.58) / 0.42), 0.0, 0.0)
+			target_rotation = _rod_rest_rotation + Vector3(lerpf(-0.92, -0.12, (progress - 0.58) / 0.42), 0.0, 0.0)
 	elif _phase == CastPhase.LANDED_SLACK:
-		target_rotation = _rod_rest_rotation + Vector3(0.12, 0.0, 0.0)
+		target_rotation = _rod_rest_rotation + Vector3(-0.08, 0.0, 0.0)
 	elif _phase == CastPhase.LANDED_TAUT:
-		target_rotation = _rod_rest_rotation + Vector3(0.03, 0.0, 0.0)
+		target_rotation = _rod_rest_rotation + Vector3(-0.03, 0.0, 0.0)
 
 	_rod_cast_rotation = _rod_cast_rotation.lerp(target_rotation, 0.85)
 	rod_root.rotation = _rod_cast_rotation
