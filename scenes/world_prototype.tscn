@@ -61,7 +61,7 @@ near = 0.05
 far = 4000.0
 
 [node name="Ground" type="StaticBody3D" parent="."]
-rotation = Vector3(0, -0.12, 0)
+rotation = Vector3(0, -0.22, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
 position = Vector3(0, -0.1, -3.5)
@@ -73,7 +73,7 @@ mesh = SubResource("BoxMesh_ground")
 surface_material_override/0 = SubResource("StandardMaterial3D_ground")
 
 [node name="Dock" parent="." instance=ExtResource("5_dock")]
-position = Vector3(-0.35, 0.08, 4.05)
+position = Vector3(-0.65, 0.14, 5.2)
 rotation = Vector3(0, 1.5708, 0)
 
 [node name="Water" type="MeshInstance3D" parent="."]
