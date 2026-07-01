@@ -80,6 +80,15 @@ Examples include:
 The pipeline tool should remain reproducible, but the generated output is not
 sacred. OneMoreCast may hand-edit it freely.
 
+Generated assets and third-party pack candidates should first land in
+`assets/_review/` when they need human or agent review. Disposable experiments
+should stay local and ignored. Commit only curated review batches tied to an
+active issue.
+
+Approved game assets move from `_review` into the normal game asset folders.
+Binary game assets and source art are tracked with Git LFS through
+`.gitattributes`; Godot import caches remain ignored.
+
 ## Promotion Rule
 
 Promotion path:
