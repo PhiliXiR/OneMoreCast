@@ -403,6 +403,7 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	var cast_button := casting_ui.get_node("ActionPanel/Layout/CastButton") as Button
 	var state_label := casting_ui.get_node("ActionPanel/Layout/StateLabel") as Label
 	var result_label := casting_ui.get_node("ActionPanel/Layout/ResultLabel") as Label
+	var inventory_label := casting_ui.get_node("LogPanel/Layout/InventoryLabel") as Label
 	var button_center := cast_button.get_global_rect().get_center()
 	var mouse_press := InputEventMouseButton.new()
 	mouse_press.button_index = MOUSE_BUTTON_LEFT
@@ -465,8 +466,18 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if state_label.text != "State: result":
 		_fail("Hook-set input should resolve the bite into a result state")
 		return false
-	if not result_label.text.contains("hook set"):
-		_fail("Hook-set input during the bite window should produce a hook-set result")
+	if not result_label.text.contains("Dock Bluegill"):
+		_fail("Hook-set input during the bite window should produce a named fish result")
+		return false
+	if not inventory_label.text.contains("Dock Bluegill x1"):
+		_fail("Successful catch should update inventory feedback")
+		return false
+	for frame in 30:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: ready":
+			break
+	if state_label.text != "State: ready":
+		_fail("Fishing loop should return to ready after catch result")
 		return false
 	return true
 

@@ -187,11 +187,20 @@ func _resolve_bite_signal_cast() -> String:
 
 func _resolve_hook_outcome() -> String:
 	if hook_set:
-		var entry := "Cast %d: hook set (%s)." % [cast_count, _get_result_context()]
+		var fish: Dictionary = FISH_TABLE[0]
+		var fish_name: String = fish["name"]
+		var fish_weight: float = fish["weight"]
+		inventory[fish_name] = inventory.get(fish_name, 0) + 1
+		var entry := "Cast %d: caught %s (%.1f lb, %s)." % [
+			cast_count,
+			fish_name,
+			fish_weight,
+			_get_result_context(),
+		]
 		_record_journal(entry)
-		result_label.text = "Latest result: hook set"
+		result_label.text = "Latest result: %s, %.1f lb" % [fish_name, fish_weight]
 		quality_label.text = _get_result_context()
-		return "Hook set. Something is on the line. %s." % _get_result_context()
+		return "Hook set. You bring in a %s. %s." % [fish_name, _get_result_context()]
 
 	var miss_entry := "Cast %d: missed the hook set (%s)." % [cast_count, _get_result_context()]
 	_record_journal(miss_entry)
