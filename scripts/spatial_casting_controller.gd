@@ -73,6 +73,7 @@ var _reel_feedback_elapsed := 0.0
 var _reel_feedback_duration := 1.2
 var _reel_start := Vector3.ZERO
 var _reel_end := Vector3.ZERO
+var _reel_caught_endpoint := Vector3.ZERO
 var _reel_feedback_completed := false
 
 
@@ -235,7 +236,8 @@ func begin_reel_feedback(duration := 1.2) -> bool:
 	_reel_feedback_elapsed = 0.0
 	_reel_feedback_duration = maxf(duration, 0.1)
 	_reel_start = _cast_destination
-	_reel_end = get_rod_tip_position() + _get_cast_direction() * 0.55 + Vector3.DOWN * 0.22
+	_reel_end = _get_underwater_reel_end()
+	_reel_caught_endpoint = get_rod_tip_position() + _get_cast_direction() * 0.2 + Vector3.DOWN * 0.12
 	_set_terminal_tackle_visible(true)
 	_set_line_endpoint_position(_reel_start)
 	_sync_terminal_tackle(_reel_start, true)
@@ -430,17 +432,20 @@ func _update_landed_line(delta: float) -> void:
 
 	var start := get_rod_tip_position()
 	var end := _cast_destination
+	var hook_in_fish := false
 	if line_endpoint != null:
 		if _reel_feedback_active:
 			end = _get_reel_position()
+			hook_in_fish = true
 		elif _reel_feedback_completed:
-			end = _reel_end
+			end = _reel_caught_endpoint
+			hook_in_fish = true
 		elif _bite_feedback_active:
 			end = _cast_destination + _get_bite_feedback_offset()
 		else:
 			end = _cast_destination
 		_set_line_endpoint_position(end)
-		_sync_terminal_tackle(end)
+		_sync_terminal_tackle(end, hook_in_fish)
 
 	var bite_sag := 0.16 if _bite_feedback_active else 0.0
 	var bite_sway := 0.1 if _bite_feedback_active else 0.0
@@ -692,8 +697,8 @@ func _update_reel_feedback(delta: float) -> void:
 	if _reel_feedback_elapsed >= _reel_feedback_duration:
 		_reel_feedback_active = false
 		_reel_feedback_completed = true
-		_set_line_endpoint_position(_reel_end)
-		_sync_terminal_tackle(_reel_end, true)
+		_set_line_endpoint_position(_reel_caught_endpoint)
+		_sync_terminal_tackle(_reel_caught_endpoint, true)
 		if hooked_fish_marker != null:
 			hooked_fish_marker.visible = false
 
@@ -707,17 +712,31 @@ func _get_reel_progress() -> float:
 func _get_reel_position() -> Vector3:
 	var progress := _ease_out_cubic(_get_reel_progress())
 	var position := _reel_start.lerp(_reel_end, progress)
-	position += Vector3.UP * sin(progress * PI) * 0.35
+	position.y = _get_underwater_hook_y()
+	position += Vector3.DOWN * absf(sin(progress * PI * 5.0)) * 0.04
 	return position
 
 
 func _get_hooked_fish_position(line_position: Vector3, progress: float) -> Vector3:
-	var underwater_y := water_center.y - 0.22
-	var emerge_progress := clampf((progress - 0.68) / 0.32, 0.0, 1.0)
 	var fish_position := line_position + _get_cast_direction() * 0.08 + Vector3.DOWN * 0.04
-	fish_position.y = lerpf(underwater_y, line_position.y - 0.04, emerge_progress)
+	fish_position.y = line_position.y - 0.04
 	fish_position.y += sin(progress * PI * 8.0) * 0.05
 	return fish_position
+
+
+func _get_underwater_reel_end() -> Vector3:
+	var rod_tip_position := get_rod_tip_position()
+	var cast_direction := _get_cast_direction()
+	var end := Vector3(
+		rod_tip_position.x + cast_direction.x * 0.35,
+		_get_underwater_hook_y(),
+		rod_tip_position.z + cast_direction.z * 0.35
+	)
+	return end
+
+
+func _get_underwater_hook_y() -> float:
+	return water_center.y - 0.18
 
 
 func _stop_reel_feedback() -> void:

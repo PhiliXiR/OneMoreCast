@@ -193,6 +193,7 @@ The hook is responsible for:
 - Becoming linked to the hooked fish after success
 - Staying embedded in the hooked fish through reel-in until the fish reaches
   the rod/landing point
+- Remaining underwater with the hooked fish until the catch resolves
 
 The hook should not be the same conceptual object as the bobber, fish, or line
 endpoint.
@@ -414,6 +415,8 @@ Expected behavior:
 - Fish starts below the surface.
 - Line becomes connected to the hooked fish through the hook/line endpoint.
 - Hook remains in the fish as it is reeled toward the rod.
+- The line endpoint stays underwater at the hook/fish mouth point until the
+  catch resolves.
 - The player should understand that the fish is attached, not already caught.
 
 ### Reeling
@@ -479,6 +482,8 @@ These rules are more important than the current implementation details.
 - Hooked fish should remain underwater early in reel-in.
 - During reel-in, the hook should remain visually embedded in the hooked fish
   until the fish reaches the rod/landing point.
+- The line should run from the rod tip to the underwater hook/fish point during
+  reel-in, not to a floating lure marker or above-water placeholder.
 - Reeling must be modeled as a distinct state, even while automatic.
 - Catch result should happen after reel/landing, not immediately on hook-set.
 - HUD text should reinforce physical feedback, not replace it.

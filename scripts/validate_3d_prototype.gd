@@ -435,8 +435,14 @@ func _validate_rod_and_line(world: Node) -> bool:
 		return false
 	var hook_position := spatial_casting.call("get_hook_marker_position") as Vector3
 	var reel_endpoint := spatial_casting.call("get_line_endpoint") as Vector3
+	if reel_endpoint.y >= original_water_center.y:
+		_fail("Line endpoint should stay underwater with the hooked fish during reel feedback")
+		return false
 	if hook_position.distance_to(reel_endpoint) > 0.03:
 		_fail("Hook should stay at the line endpoint once a fish is hooked")
+		return false
+	if hook_position.y >= original_water_center.y:
+		_fail("Hook should stay underwater in the fish mouth during reel feedback")
 		return false
 	if hook_position.distance_to(hooked_fish_marker.global_position) > 0.25:
 		_fail("Hook should stay embedded in the hooked fish during reel feedback")
@@ -448,9 +454,15 @@ func _validate_rod_and_line(world: Node) -> bool:
 	if line_during_reel.distance_to(rod_tip.global_position) >= line_before_reel.distance_to(rod_tip.global_position):
 		_fail("Reel feedback should shorten the fishing line toward the rod")
 		return false
+	if line_during_reel.y >= original_water_center.y:
+		_fail("Line endpoint should remain underwater until the fish is caught")
+		return false
 	hook_position = spatial_casting.call("get_hook_marker_position") as Vector3
 	if hook_position.distance_to(line_during_reel) > 0.03:
 		_fail("Hook should continue riding the line endpoint while reeling")
+		return false
+	if hook_position.y >= original_water_center.y:
+		_fail("Hook should remain underwater with the fish until caught")
 		return false
 	if hook_position.distance_to(hooked_fish_marker.global_position) > 0.25:
 		_fail("Hook should remain in the hooked fish as it moves toward the rod")
