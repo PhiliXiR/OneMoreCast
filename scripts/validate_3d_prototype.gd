@@ -49,6 +49,10 @@ func _run_validation() -> void:
 		return
 	if not _require_node(world, "LureMarker"):
 		return
+	if not _require_node(world, "HookMarker"):
+		return
+	if not _require_node(world, "LineEndpoint"):
+		return
 	if not _require_node(world, "HookedFishMarker"):
 		return
 	if not _require_node(world, "LandingFeedback"):
@@ -184,11 +188,14 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"get_target_point",
 		"get_rod_tip_position",
 		"get_line_endpoint",
+		"get_lure_marker_position",
+		"get_hook_marker_position",
 		"get_line_points_world",
 		"get_line_state_label",
 		"get_line_overlay_width",
 		"is_line_showing_valid_feedback",
 		"is_world_line_disabled",
+		"is_line_endpoint_visible",
 		"get_rod_cast_motion_offset",
 		"get_landing_feedback_label",
 		"is_landing_feedback_visible",
@@ -246,6 +253,9 @@ func _validate_rod_and_line(world: Node) -> bool:
 	var rod_mesh := world.get_node("PlayerRig/VisualRoot/RodRoot/RodMesh") as MeshInstance3D
 	var rod_tip := world.get_node("PlayerRig/VisualRoot/RodRoot/RodTip") as Node3D
 	var fishing_line_overlay := world.get_node("LineOverlayLayer/FishingLineOverlay") as Line2D
+	var lure_marker := world.get_node("LureMarker") as MeshInstance3D
+	var hook_marker := world.get_node("HookMarker") as MeshInstance3D
+	var line_endpoint_node := world.get_node("LineEndpoint") as Node3D
 	if not rod_mesh.visible:
 		_fail("Fishing rod mesh should be visible")
 		return false
@@ -261,6 +271,12 @@ func _validate_rod_and_line(world: Node) -> bool:
 	if not (spatial_casting.call("is_world_line_disabled") as bool):
 		_fail("Thick world fishing line should be disabled during normal gameplay")
 		return false
+	if spatial_casting.call("is_line_endpoint_visible") as bool:
+		_fail("LineEndpoint should be an invisible simulation anchor")
+		return false
+	if lure_marker.visible or hook_marker.visible:
+		_fail("Visible terminal tackle should stay hidden while only aiming")
+		return false
 	if not fishing_line_overlay.visible:
 		_fail("Projected fishing line should preview the cast target")
 		return false
@@ -275,6 +291,9 @@ func _validate_rod_and_line(world: Node) -> bool:
 		return false
 	if line_endpoint.distance_to(rod_tip.global_position) > 1.0:
 		_fail("Aiming line should stay near the rod before casting")
+		return false
+	if line_endpoint.distance_to(line_endpoint_node.global_position) > 0.01:
+		_fail("Spatial casting line endpoint should match the LineEndpoint node")
 		return false
 	var line_points: Array = spatial_casting.call("get_line_points_world") as Array
 	if line_points.size() < 12:
@@ -297,12 +316,21 @@ func _validate_rod_and_line(world: Node) -> bool:
 
 	spatial_casting.call("begin_cast")
 	target_point = spatial_casting.call("get_target_point") as Vector3
-	var lure_marker := world.get_node("LureMarker") as MeshInstance3D
 	if spatial_casting.call("get_line_state_label") as String != "casting":
 		_fail("Fishing line should enter casting state after cast starts")
 		return false
-	if lure_marker.global_position.distance_to(rod_tip.global_position) > 0.1:
-		_fail("Lure should start near the rod tip")
+	if not lure_marker.visible or not hook_marker.visible:
+		_fail("Visible lure and hook should appear when the cast starts")
+		return false
+	line_endpoint = spatial_casting.call("get_line_endpoint") as Vector3
+	if line_endpoint.distance_to(rod_tip.global_position) > 0.1:
+		_fail("LineEndpoint should start near the rod tip")
+		return false
+	if lure_marker.global_position.distance_to(line_endpoint) <= 0.01:
+		_fail("LureMarker should be a visible object offset from the invisible LineEndpoint")
+		return false
+	if hook_marker.global_position.distance_to(line_endpoint) <= 0.01:
+		_fail("HookMarker should be a visible object offset from the invisible LineEndpoint")
 		return false
 	spatial_casting.call("refresh_casting_visuals", 0.08)
 	await process_frame
@@ -315,15 +343,21 @@ func _validate_rod_and_line(world: Node) -> bool:
 		await process_frame
 
 	line_endpoint = spatial_casting.call("get_line_endpoint") as Vector3
-	if line_endpoint.distance_to(lure_marker.global_position) > 0.1:
-		_fail("Fishing line endpoint should follow the moving lure during cast")
+	if line_endpoint.distance_to(line_endpoint_node.global_position) > 0.01:
+		_fail("Fishing line endpoint should follow the invisible LineEndpoint node during cast")
+		return false
+	if lure_marker.global_position.distance_to(line_endpoint) > 0.2:
+		_fail("LureMarker should visually follow the moving LineEndpoint during cast")
+		return false
+	if hook_marker.global_position.distance_to(line_endpoint) > 0.2:
+		_fail("HookMarker should visually follow the moving LineEndpoint during cast")
 		return false
 	line_points = spatial_casting.call("get_line_points_world") as Array
 	if line_points.size() < 16:
 		_fail("Casting fishing line should expose a multi-point unrolling loop")
 		return false
-	if lure_marker.global_position.distance_to(rod_tip.global_position) < 0.5:
-		_fail("Lure should travel away from the rod during the cast arc")
+	if line_endpoint.distance_to(rod_tip.global_position) < 0.5:
+		_fail("LineEndpoint should travel away from the rod during the cast arc")
 		return false
 
 	for frame in 2:
@@ -334,11 +368,18 @@ func _validate_rod_and_line(world: Node) -> bool:
 	if state_label != "slack" and state_label != "taut":
 		_fail("Fishing line should settle into slack or taut state after landing")
 		return false
-	if lure_marker.global_position.distance_to(target_point + Vector3.UP * 0.12) > 0.15:
+	line_endpoint = spatial_casting.call("get_line_endpoint") as Vector3
+	if line_endpoint.distance_to(target_point + Vector3.UP * 0.12) > 0.15:
 		_fail(
-			"Lure should land at the target point. Lure=%s expected=%s target=%s"
-			% [lure_marker.global_position, target_point + Vector3.UP * 0.12, target_point]
+			"LineEndpoint should land at the target point. Endpoint=%s expected=%s target=%s"
+			% [line_endpoint, target_point + Vector3.UP * 0.12, target_point]
 		)
+		return false
+	if lure_marker.global_position.distance_to(line_endpoint) > 0.2:
+		_fail("LureMarker should stay attached to the endpoint after landing")
+		return false
+	if hook_marker.global_position.distance_to(line_endpoint) > 0.2:
+		_fail("HookMarker should stay attached to the endpoint after landing")
 		return false
 	if not (spatial_casting.call("is_landing_feedback_visible") as bool):
 		_fail("Water landing feedback should be visible as the lure lands")
@@ -392,12 +433,27 @@ func _validate_rod_and_line(world: Node) -> bool:
 	if hooked_fish_marker.global_position.y >= original_water_center.y:
 		_fail("Hooked fish should start underwater during reel feedback")
 		return false
+	var hook_position := spatial_casting.call("get_hook_marker_position") as Vector3
+	var reel_endpoint := spatial_casting.call("get_line_endpoint") as Vector3
+	if hook_position.distance_to(reel_endpoint) > 0.03:
+		_fail("Hook should stay at the line endpoint once a fish is hooked")
+		return false
+	if hook_position.distance_to(hooked_fish_marker.global_position) > 0.25:
+		_fail("Hook should stay embedded in the hooked fish during reel feedback")
+		return false
 	for frame in 8:
 		spatial_casting.call("refresh_casting_visuals", 0.08)
 		await process_frame
 	var line_during_reel := spatial_casting.call("get_line_endpoint") as Vector3
 	if line_during_reel.distance_to(rod_tip.global_position) >= line_before_reel.distance_to(rod_tip.global_position):
 		_fail("Reel feedback should shorten the fishing line toward the rod")
+		return false
+	hook_position = spatial_casting.call("get_hook_marker_position") as Vector3
+	if hook_position.distance_to(line_during_reel) > 0.03:
+		_fail("Hook should continue riding the line endpoint while reeling")
+		return false
+	if hook_position.distance_to(hooked_fish_marker.global_position) > 0.25:
+		_fail("Hook should remain in the hooked fish as it moves toward the rod")
 		return false
 	if hooked_fish_marker.global_position.y >= original_water_center.y:
 		_fail("Hooked fish should stay underwater until it gets closer to the rod")

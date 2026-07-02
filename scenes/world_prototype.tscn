@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=25 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -42,8 +42,12 @@ height = 0.14
 size = Vector3(0.24, 0.014, 0.035)
 
 [sub_resource type="SphereMesh" id="SphereMesh_lure"]
-radius = 0.12
-height = 0.24
+radius = 0.055
+height = 0.11
+
+[sub_resource type="SphereMesh" id="SphereMesh_hook"]
+radius = 0.035
+height = 0.07
 
 [sub_resource type="SphereMesh" id="SphereMesh_hooked_fish"]
 radius = 0.22
@@ -144,6 +148,13 @@ mesh = SubResource("BoxMesh_target_tick")
 visible = false
 mesh = SubResource("SphereMesh_lure")
 
+[node name="HookMarker" type="MeshInstance3D" parent="."]
+visible = false
+mesh = SubResource("SphereMesh_hook")
+
+[node name="LineEndpoint" type="Node3D" parent="."]
+visible = false
+
 [node name="HookedFishMarker" type="MeshInstance3D" parent="."]
 visible = false
 scale = Vector3(1.4, 0.65, 0.55)
@@ -183,6 +194,8 @@ player_path = NodePath("../PlayerRig")
 camera_path = NodePath("../MMOCameraRig")
 target_marker_path = NodePath("../CastTargetMarker")
 lure_marker_path = NodePath("../LureMarker")
+hook_marker_path = NodePath("../HookMarker")
+line_endpoint_path = NodePath("../LineEndpoint")
 hooked_fish_marker_path = NodePath("../HookedFishMarker")
 rod_root_path = NodePath("../PlayerRig/VisualRoot/RodRoot")
 rod_tip_path = NodePath("../PlayerRig/VisualRoot/RodRoot/RodTip")

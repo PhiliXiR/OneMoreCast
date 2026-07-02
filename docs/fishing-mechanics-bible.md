@@ -51,8 +51,10 @@ Current implementation facts:
 - Reeling is automatic.
 - Hook-set success is a simple timing-window check.
 - The line is rendered as a projected `Line2D` using world-space line points.
+- The line now follows an explicit invisible `LineEndpoint`.
 - The target marker is an aim assist, not a physical fishing object.
-- The visible lure/hook is still placeholder geometry.
+- The visible lure and hook are separate placeholder markers driven by the line
+  endpoint.
 - The fish is still placeholder geometry.
 - The result is currently a named `Dock Bluegill`.
 
@@ -189,6 +191,8 @@ The hook is responsible for:
 - Being the attachment point when a hook-set succeeds
 - Moving with the lure or bait
 - Becoming linked to the hooked fish after success
+- Staying embedded in the hooked fish through reel-in until the fish reaches
+  the rod/landing point
 
 The hook should not be the same conceptual object as the bobber, fish, or line
 endpoint.
@@ -409,6 +413,7 @@ Expected behavior:
 - Hooked fish actor appears or becomes active underwater.
 - Fish starts below the surface.
 - Line becomes connected to the hooked fish through the hook/line endpoint.
+- Hook remains in the fish as it is reeled toward the rod.
 - The player should understand that the fish is attached, not already caught.
 
 ### Reeling
@@ -472,6 +477,8 @@ These rules are more important than the current implementation details.
 - Fish are abstract before hook-set in the current prototype.
 - Hooked fish may be spawned as a temporary actor after hook-set.
 - Hooked fish should remain underwater early in reel-in.
+- During reel-in, the hook should remain visually embedded in the hooked fish
+  until the fish reaches the rod/landing point.
 - Reeling must be modeled as a distinct state, even while automatic.
 - Catch result should happen after reel/landing, not immediately on hook-set.
 - HUD text should reinforce physical feedback, not replace it.
@@ -527,8 +534,9 @@ split states when mechanics need clearer timing, animation, or interaction.
 ```text
 Design Object      Current Prototype
 -------------      -----------------
-Line endpoint      implicit endpoint in spatial_casting_controller.gd
-Lure/hook          LureMarker placeholder
+Line endpoint      LineEndpoint invisible Node3D
+Lure               LureMarker placeholder
+Hook               HookMarker placeholder
 Bobber             not present
 Fish presence      abstract
 Hooked fish        HookedFishMarker placeholder
@@ -537,8 +545,9 @@ Line               FishingLineOverlay Line2D
 Rod                PlayerRig RodRoot/RodTip
 ```
 
-The `LureMarker` should be split conceptually from the line endpoint even if the
-current code still uses it heavily as the visible endpoint.
+The visible `LureMarker` and `HookMarker` are still placeholder meshes, but they
+are now driven by the invisible `LineEndpoint` instead of serving as the line's
+simulation anchor.
 
 ## Design Priorities
 
