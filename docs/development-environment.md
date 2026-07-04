@@ -14,6 +14,12 @@ The prototype validation command is:
 C:\_Dev\Godot\Godot_4.7\Godot_v4.7-stable_win64_console.exe --headless --path C:\_Dev\OneMoreCast --script scripts\validate_3d_prototype.gd
 ```
 
+The menu integration validation command is:
+
+```powershell
+C:\_Dev\Godot\Godot_4.7\Godot_v4.7-stable_win64_console.exe --headless --path C:\_Dev\OneMoreCast --script scripts\validate_menu_integration.gd
+```
+
 The project file also records the 4.7 feature version:
 
 ```text
@@ -33,8 +39,8 @@ Until that is resolved, use these checks before committing gameplay changes:
 git diff --check
 ```
 
-Then manually open the project in Godot 4.7 and play
-`res://scenes/world_prototype.tscn`.
+Then manually open the project in Godot 4.7 and run the project from
+`res://scenes/app/AppRoot.tscn`.
 
 Do not treat a 4.5 or 4.6 validation failure as a project regression while the
 project file targets 4.7.

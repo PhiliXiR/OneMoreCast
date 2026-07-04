@@ -72,3 +72,20 @@ tools/3DCodexPipeline/game/systems/camera/scripts/
 
 The existing casting UI remains game-owned and is instanced into the 3D
 prototype so movement, camera, and fishing feedback can be tested together.
+
+The app and menu shell uses reusable menu state-machine scripts from:
+
+```text
+tools/3DCodexPipeline/game/autoload/
+tools/3DCodexPipeline/game/scenes/app/
+tools/3DCodexPipeline/game/ui/scripts/
+```
+
+OneMoreCast owns the project-specific app scene, menu composition, and level
+registry:
+
+```text
+scenes/app/AppRoot.tscn
+ui/MenuRoot.tscn
+data/levels.json
+```

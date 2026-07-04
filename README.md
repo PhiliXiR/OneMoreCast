@@ -12,7 +12,9 @@ belong.
 ## First Playable
 
 The current prototype includes a minimal one-button casting loop.
-Open the repo in Godot and run `scenes/main.tscn` to test it by itself.
+Open the repo in Godot and run the project. The app starts at
+`scenes/app/AppRoot.tscn`, shows the main menu, and loads
+`scenes/world_prototype.tscn` as the current playable fishing level.
 
 The loop moves through `ready`, `casting`, `waiting`, `bite`, `reeling`, and
 `result`, then records the latest catch or empty cast in a simple in-memory
@@ -20,9 +22,13 @@ inventory and journal.
 
 ## 3D Prototype
 
-The default run scene is `scenes/world_prototype.tscn`. It combines a game-owned
-player wrapper, reusable movement and camera scripts from the `3DCodexPipeline`
-submodule, and the current casting UI.
+The playable world scene is `scenes/world_prototype.tscn`. It combines a
+game-owned player wrapper, reusable movement and camera scripts from the
+`3DCodexPipeline` submodule, and the current casting UI.
+
+The default run scene is `scenes/app/AppRoot.tscn`, which uses the reusable menu
+state machine from the `3DCodexPipeline` submodule and OneMoreCast-owned menu
+scene wiring in `ui/MenuRoot.tscn`.
 
 See [docs/pipeline-runtime-integration.md](docs/pipeline-runtime-integration.md)
 for the runtime integration boundary between OneMoreCast and the reusable

@@ -1,0 +1,8 @@
+[
+  {
+    "level_id": "one_more_cast_dock",
+    "display_name": "One More Cast Dock",
+    "scene_path": "res://scenes/world_prototype.tscn",
+    "tags": ["prototype", "dock", "fishing"]
+  }
+]
