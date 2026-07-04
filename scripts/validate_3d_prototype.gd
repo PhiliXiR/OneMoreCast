@@ -55,6 +55,8 @@ func _run_validation() -> void:
 		return
 	if not _require_node(world, "HookedFishMarker"):
 		return
+	if not _require_node(world, "HookedFishMouthMarker"):
+		return
 	if not _require_node(world, "LandingFeedback"):
 		return
 	if not _require_node(world, "LandingFeedback/WaterRippleOuter"):
@@ -427,8 +429,12 @@ func _validate_rod_and_line(world: Node) -> bool:
 		_fail("Reel feedback should become active")
 		return false
 	var hooked_fish_marker := world.get_node("HookedFishMarker") as MeshInstance3D
+	var hooked_fish_mouth_marker := world.get_node("HookedFishMouthMarker") as MeshInstance3D
 	if not hooked_fish_marker.visible:
 		_fail("Hooked fish marker should appear during reel feedback")
+		return false
+	if not hooked_fish_mouth_marker.visible:
+		_fail("Hooked fish mouth marker should appear during reel feedback")
 		return false
 	if hooked_fish_marker.global_position.y >= original_water_center.y:
 		_fail("Hooked fish should start underwater during reel feedback")
@@ -440,6 +446,9 @@ func _validate_rod_and_line(world: Node) -> bool:
 		return false
 	if hook_position.distance_to(reel_endpoint) > 0.03:
 		_fail("Hook should stay at the line endpoint once a fish is hooked")
+		return false
+	if hooked_fish_mouth_marker.global_position.distance_to(reel_endpoint) > 0.03:
+		_fail("Fish mouth marker should stay at the underwater line endpoint")
 		return false
 	if hook_position.y >= original_water_center.y:
 		_fail("Hook should stay underwater in the fish mouth during reel feedback")
@@ -460,6 +469,9 @@ func _validate_rod_and_line(world: Node) -> bool:
 	hook_position = spatial_casting.call("get_hook_marker_position") as Vector3
 	if hook_position.distance_to(line_during_reel) > 0.03:
 		_fail("Hook should continue riding the line endpoint while reeling")
+		return false
+	if hooked_fish_mouth_marker.global_position.distance_to(line_during_reel) > 0.03:
+		_fail("Fish mouth marker should continue riding the underwater line endpoint")
 		return false
 	if hook_position.y >= original_water_center.y:
 		_fail("Hook should remain underwater with the fish until caught")

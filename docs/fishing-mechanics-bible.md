@@ -545,6 +545,7 @@ Hook               HookMarker placeholder
 Bobber             not present
 Fish presence      abstract
 Hooked fish        HookedFishMarker placeholder
+Fish mouth         HookedFishMouthMarker at the underwater line endpoint
 Target marker      CastTargetMarker reticle
 Line               FishingLineOverlay Line2D
 Rod                PlayerRig RodRoot/RodTip
@@ -553,6 +554,9 @@ Rod                PlayerRig RodRoot/RodTip
 The visible `LureMarker` and `HookMarker` are still placeholder meshes, but they
 are now driven by the invisible `LineEndpoint` instead of serving as the line's
 simulation anchor.
+
+During reel-in, `HookedFishMouthMarker`, `HookMarker`, and `LineEndpoint` should
+stay together underwater so the line reads as connected to the fish's mouth.
 
 ## Design Priorities
 

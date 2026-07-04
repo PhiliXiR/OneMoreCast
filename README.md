@@ -27,3 +27,9 @@ submodule, and the current casting UI.
 See [docs/pipeline-runtime-integration.md](docs/pipeline-runtime-integration.md)
 for the runtime integration boundary between OneMoreCast and the reusable
 pipeline.
+
+## Development Environment
+
+OneMoreCast currently targets Godot 4.7. See
+[docs/development-environment.md](docs/development-environment.md) for the local
+Godot path, validation command, and current headless validation note.
