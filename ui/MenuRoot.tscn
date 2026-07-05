@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/ui/scripts/menu_root.gd" id="1_menu_root"]
-[ext_resource type="Script" path="res://tools/3DCodexPipeline/game/ui/scripts/menu_screen.gd" id="2_menu_screen"]
+[ext_resource type="Script" path="res://ui/scripts/one_more_cast_menu_screen.gd" id="2_menu_screen"]
 
 [node name="MenuRoot" type="Control"]
 process_mode = 3
@@ -14,7 +14,7 @@ script = ExtResource("1_menu_root")
 unique_name_in_owner = true
 script = ExtResource("2_menu_screen")
 title = "One More Cast"
-actions = PackedStringArray("start", "level_select", "settings", "dev_menu", "quit")
+actions = PackedStringArray("start", "level_select", "settings", "quit")
 
 [node name="LevelSelectMenu" type="Control" parent="."]
 unique_name_in_owner = true
@@ -26,7 +26,7 @@ actions = PackedStringArray("back")
 unique_name_in_owner = true
 script = ExtResource("2_menu_screen")
 title = "Paused"
-actions = PackedStringArray("resume", "restart_level", "settings", "level_select", "main_menu", "quit")
+actions = PackedStringArray("resume", "restart_level", "settings", "level_select", "main_menu")
 
 [node name="LevelCompleteMenu" type="Control" parent="."]
 unique_name_in_owner = true

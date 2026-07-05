@@ -2,6 +2,7 @@ extends SceneTree
 
 const APP_ROOT_SCENE := "res://scenes/app/AppRoot.tscn"
 const MENU_ROOT_SCENE := "res://ui/MenuRoot.tscn"
+const MENU_SCREEN_SCRIPT := "res://ui/scripts/one_more_cast_menu_screen.gd"
 const DEFAULT_LEVEL_ID := "one_more_cast_dock"
 const STATE_MAIN_MENU := 1
 const STATE_PLAYING := 4
@@ -29,6 +30,8 @@ func _run_validation() -> void:
 		failures.append("AppRoot scene is missing")
 	if not ResourceLoader.exists(MENU_ROOT_SCENE):
 		failures.append("MenuRoot scene is missing")
+	if not ResourceLoader.exists(MENU_SCREEN_SCRIPT):
+		failures.append("OneMoreCast menu screen script is missing")
 
 	var game_state := root.get_node_or_null("GameState")
 	var level_registry := root.get_node_or_null("LevelRegistry")
@@ -54,6 +57,16 @@ func _run_validation() -> void:
 	var app_root: Node = (packed_scene as PackedScene).instantiate()
 	root.add_child(app_root)
 	await process_frame
+	var menu_root := app_root.get_node_or_null("MenuLayer/MenuRoot")
+	if menu_root == null:
+		failures.append("AppRoot did not instance MenuRoot")
+	else:
+		var main_menu := menu_root.get_node_or_null("MainMenu")
+		var pause_menu := menu_root.get_node_or_null("PauseMenu")
+		if main_menu == null or main_menu.get_script().resource_path != MENU_SCREEN_SCRIPT:
+			failures.append("MainMenu is not using the OneMoreCast menu screen")
+		if pause_menu == null or pause_menu.get_script().resource_path != MENU_SCREEN_SCRIPT:
+			failures.append("PauseMenu is not using the OneMoreCast menu screen")
 
 	game_state.call("transition_to", STATE_MAIN_MENU)
 	if game_state.get("current_state") as int != STATE_MAIN_MENU:
