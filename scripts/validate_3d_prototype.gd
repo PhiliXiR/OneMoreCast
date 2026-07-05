@@ -15,6 +15,9 @@ func _initialize() -> void:
 
 
 func _run_validation() -> void:
+	if not _validate_window_stretch_settings():
+		return
+
 	var packed_scene := load(WORLD_SCENE) as PackedScene
 	if packed_scene == null:
 		_fail("Could not load %s" % WORLD_SCENE)
@@ -112,6 +115,18 @@ func _run_validation() -> void:
 func _require_node(parent: Node, path: NodePath) -> bool:
 	if parent.get_node_or_null(path) == null:
 		_fail("Missing node: %s" % path)
+		return false
+	return true
+
+
+func _validate_window_stretch_settings() -> bool:
+	var stretch_mode := ProjectSettings.get_setting("display/window/stretch/mode", "")
+	var stretch_aspect := ProjectSettings.get_setting("display/window/stretch/aspect", "")
+	if stretch_mode != "canvas_items":
+		_fail("Window stretch mode must be canvas_items so UI hitboxes stay aligned with rendered controls")
+		return false
+	if stretch_aspect != "expand":
+		_fail("Window stretch aspect must be expand so the 1920x1080 UI scales without mouse offset")
 		return false
 	return true
 

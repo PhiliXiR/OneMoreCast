@@ -97,14 +97,20 @@ func _build() -> void:
 
 	var backdrop := ColorRect.new()
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	backdrop.color = Color(0.02, 0.032, 0.035, 0.64)
 	add_child(backdrop)
 
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
+	add_child(center)
+
 	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(460.0, 0.0)
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_theme_stylebox_override("panel", _panel_style)
-	add_child(panel)
+	center.add_child(panel)
 
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 12)
