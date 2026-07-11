@@ -11,6 +11,8 @@ const DEFAULT_CONFIG := {
 	"surge_count": 3,
 	"danger_window": 0.9,
 	"resolve_failures": false,
+	"resolve_slack_failure": true,
+	"resolve_high_tension_failure": false,
 	"recovery_only": false,
 	"recovery_reel_rate": 0.115,
 }
@@ -94,7 +96,8 @@ func snapshot() -> Dictionary:
 		"surge_count": surge_count,
 		"surge_progress_floor": _surge_progress_floor,
 		"phase_duration": _get_phase_duration(),
-		"resolve_failures": bool(_config["resolve_failures"]),
+		"slack_failure_enabled": _slack_failure_enabled(),
+		"high_tension_failure_enabled": _high_tension_failure_enabled(),
 	}
 
 
@@ -133,10 +136,18 @@ func _update_danger(delta: float) -> void:
 		slack_danger += delta
 	else:
 		slack_danger = maxf(0.0, slack_danger - delta * 2.4)
-	if bool(_config["resolve_failures"]) and high_tension_danger >= danger_window:
+	if _high_tension_failure_enabled() and high_tension_danger >= danger_window:
 		outcome = Outcome.LINE_BREAK
-	elif bool(_config["resolve_failures"]) and slack_danger >= danger_window:
+	elif _slack_failure_enabled() and slack_danger >= danger_window:
 		outcome = Outcome.THROWN_HOOK
+
+
+func _slack_failure_enabled() -> bool:
+	return bool(_config["resolve_failures"]) or bool(_config["resolve_slack_failure"])
+
+
+func _high_tension_failure_enabled() -> bool:
+	return bool(_config["resolve_failures"]) or bool(_config["resolve_high_tension_failure"])
 
 
 func _advance_phase_if_needed() -> void:

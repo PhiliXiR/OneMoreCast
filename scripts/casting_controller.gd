@@ -31,7 +31,8 @@ var fight_snapshot := {}
 var next_fight_configuration := {}
 var _tutorial_hold_shown := false
 var _tutorial_release_shown := false
-var _tutorial_danger_shown := false
+var _tutorial_slack_danger_shown := false
+var _tutorial_high_tension_danger_shown := false
 var _last_fight_phase := -1
 
 
@@ -173,13 +174,17 @@ func _present_fight() -> void:
 		tutorial_label.text = "Surge coming — release to yield!"
 	var high := float(fight_snapshot.get("high_tension_danger", 0.0))
 	var slack := float(fight_snapshot.get("slack_danger", 0.0))
-	var failures_enabled := bool(fight_snapshot.get("resolve_failures", false))
-	if failures_enabled and (high > 0.0 or slack > 0.0) and not _tutorial_danger_shown:
-		_tutorial_danger_shown = true
-		tutorial_label.text = "Yield now — the line may break!" if high > 0.0 else "Reel now — the fish may throw the hook!"
+	var high_failure_enabled := bool(fight_snapshot.get("high_tension_failure_enabled", false))
+	var slack_failure_enabled := bool(fight_snapshot.get("slack_failure_enabled", false))
+	if high_failure_enabled and high > 0.0 and not _tutorial_high_tension_danger_shown:
+		_tutorial_high_tension_danger_shown = true
+		tutorial_label.text = "Yield now — the line may break!"
+	elif slack_failure_enabled and slack > 0.0 and not _tutorial_slack_danger_shown:
+		_tutorial_slack_danger_shown = true
+		tutorial_label.text = "Reel now — the fish may throw the hook!"
 	var pulse := 0.55 + 0.45 * absf(sin(Time.get_ticks_msec() * 0.012))
-	tension_regions.get_node("Slack").modulate = Color(pulse, pulse, 1.0) if slack > 0.0 else Color.WHITE
-	tension_regions.get_node("Excessive").modulate = Color(1.0, pulse, pulse) if high > 0.0 else Color.WHITE
+	tension_regions.get_node("Slack").modulate = Color(pulse, pulse, 1.0) if slack_failure_enabled and slack > 0.0 else Color.WHITE
+	tension_regions.get_node("Excessive").modulate = Color(1.0, pulse, pulse) if high_failure_enabled and high > 0.0 else Color.WHITE
 	_provider_call("apply_fight_snapshot", [fight_snapshot, reel_held])
 
 

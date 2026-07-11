@@ -209,7 +209,19 @@ func _validate_fight_model_outcomes() -> bool:
 		return false
 
 	var slack_loss := FishFightModel.new()
-	slack_loss.start({"recovery_only": false, "recovery_durations": [2.0], "danger_window": 0.2, "resolve_failures": true})
+	slack_loss.start({"recovery_only": false, "recovery_durations": [4.0], "danger_window": 0.9})
+	for step in 18: slack_loss.advance(0.1, false)
+	var recoverable_slack := slack_loss.snapshot()
+	if float(recoverable_slack["slack_danger"]) <= 0.0:
+		_fail("Prolonged yielding during recovery should accumulate slack danger")
+		return false
+	if int(recoverable_slack["outcome"]) != FishFightModel.Outcome.ONGOING:
+		_fail("Entering line slack once should remain recoverable through a danger window")
+		return false
+	for step in 4: slack_loss.advance(0.1, true)
+	if not is_zero_approx(float(slack_loss.snapshot()["slack_danger"])):
+		_fail("Returning to safe tension should fully drain brief slack danger quickly")
+		return false
 	for step in 30: slack_loss.advance(0.1, false)
 	if int(slack_loss.snapshot()["outcome"]) != FishFightModel.Outcome.THROWN_HOOK:
 		_fail("Sustained line slack should let the fish throw the hook")
@@ -682,6 +694,7 @@ func _validate_camera_input(camera: Node) -> bool:
 func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	var cast_button := casting_ui.get_node("ActionPanel/Layout/CastButton") as Button
 	var state_label := casting_ui.get_node("ActionPanel/Layout/StateLabel") as Label
+	var message_label := casting_ui.get_node("ActionPanel/Layout/MessageLabel") as Label
 	var result_label := casting_ui.get_node("ActionPanel/Layout/ResultLabel") as Label
 	var inventory_label := casting_ui.get_node("LogPanel/Layout/InventoryLabel") as Label
 	casting_ui.call("configure_next_fight", {
@@ -887,6 +900,52 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 			break
 	if state_label.text != "State: ready":
 		_fail("Fishing loop should return to ready after catch result")
+		return false
+	var inventory_before_loss := inventory_label.text
+	var journal_label := casting_ui.get_node("LogPanel/Layout/JournalLabel") as Label
+	casting_ui.call("configure_next_fight", {
+		"recovery_only": false,
+		"recovery_durations": [4.0],
+		"windup_durations": [1.0],
+		"surge_durations": [1.0],
+		"surge_count": 1,
+		"danger_window": 0.25,
+	})
+	cast_button.pressed.emit()
+	for frame in 80:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: bite": break
+	_push_action(&"set_hook", true)
+	_push_action(&"set_hook", false)
+	var saw_slack_warning := false
+	var saw_slack_pulse := false
+	var saw_landed_presentation := false
+	for frame in 120:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: landed fish": saw_landed_presentation = true
+		if tutorial_label.text.contains("throw the hook"): saw_slack_warning = true
+		if tension_regions.get_node("Slack").modulate != Color.WHITE: saw_slack_pulse = true
+		if state_label.text == "State: result": break
+	if not saw_slack_warning or not saw_slack_pulse:
+		_fail("Slack danger should show a cause-specific warning and pulse the slack gauge region")
+		return false
+	if saw_landed_presentation:
+		_fail("A thrown hook should skip the landed-fish presentation")
+		return false
+	if not result_label.text.contains("thrown hook") or not message_label.text.contains("Reel during recovery"):
+		_fail("Thrown-hook result should identify the cause and give a corrective hint")
+		return false
+	if not journal_label.text.contains("thrown hook"):
+		_fail("Journal should distinguish a thrown hook from other outcomes")
+		return false
+	if inventory_label.text != inventory_before_loss:
+		_fail("A thrown hook must not add inventory or consume existing catch records")
+		return false
+	for frame in 25:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: ready": break
+	if state_label.text != "State: ready" or cast_button.disabled:
+		_fail("Thrown-hook result should return promptly to cast readiness")
 		return false
 	return true
 
