@@ -1,120 +1,107 @@
 extends Control
 
-enum CastState {
-	READY,
-	CASTING,
-	WAITING,
-	BITE,
-	REELING,
-	RESULT,
-}
-
-const STATE_NAMES := {
-	CastState.READY: "ready",
-	CastState.CASTING: "casting",
-	CastState.WAITING: "waiting",
-	CastState.BITE: "bite",
-	CastState.REELING: "reeling",
-	CastState.RESULT: "result",
-}
-
-const FISH_TABLE := [
-	{"name": "Dock Bluegill", "weight": 0.7},
-	{"name": "Copper Minnow", "weight": 0.5},
-	{"name": "Old Boot Bass", "weight": 1.9},
-]
+enum CastState { READY, CASTING, WAITING, BITE, REELING, LANDED_FISH, RESULT }
+const STATE_NAMES := ["ready", "casting", "waiting", "bite", "reeling", "landed fish", "result"]
+const BLUEGILL := {"name": "Dock Bluegill", "weight": 0.7}
 
 @export var spatial_casting_provider_path: NodePath
-
 @onready var state_label: Label = $ActionPanel/Layout/StateLabel
 @onready var spatial_label: Label = $ActionPanel/Layout/SpatialLabel
 @onready var message_label: Label = $ActionPanel/Layout/MessageLabel
 @onready var cast_button: Button = $ActionPanel/Layout/CastButton
 @onready var result_label: Label = $ActionPanel/Layout/ResultLabel
 @onready var quality_label: Label = $ActionPanel/Layout/QualityLabel
+@onready var tension_gauge: ProgressBar = $ActionPanel/Layout/TensionGauge
+@onready var tension_regions: HBoxContainer = $ActionPanel/Layout/TensionRegions
+@onready var tutorial_label: Label = $ActionPanel/Layout/TutorialLabel
 @onready var inventory_label: Label = $LogPanel/Layout/InventoryLabel
 @onready var journal_label: Label = $LogPanel/Layout/JournalLabel
+@onready var surge_cue: AudioStreamPlayer = $SurgeCue
 
 var state := CastState.READY
 var cast_count := 0
 var inventory := {}
 var journal: Array[String] = []
-var rng := RandomNumberGenerator.new()
 var spatial_casting_provider: Node
 var hook_set := false
 var bite_window_open := false
+var reel_held := false
+var fight_model: FishFightModel
+var fight_snapshot := {}
+var next_fight_configuration := {}
+var _tutorial_hold_shown := false
+var _tutorial_release_shown := false
+var _tutorial_danger_shown := false
+var _last_fight_phase := ""
 
 
 func _ready() -> void:
-	rng.randomize()
 	spatial_casting_provider = get_node_or_null(spatial_casting_provider_path)
 	cast_button.pressed.connect(_on_action_pressed)
+	cast_button.button_down.connect(func() -> void: set_reel_held(true))
+	cast_button.button_up.connect(func() -> void: set_reel_held(false))
+	var cue_stream := AudioStreamGenerator.new()
+	cue_stream.mix_rate = 22050.0
+	cue_stream.buffer_length = 0.12
+	surge_cue.stream = cue_stream
 	_update_view("The water is quiet. Make the first cast.")
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if state == CastState.REELING and fight_model != null:
+		fight_snapshot = fight_model.advance(delta, reel_held)
+		_present_fight()
 	_update_spatial_view()
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mouse_event := event as InputEventMouseButton
-		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
-			if cast_button.get_global_rect().has_point(mouse_event.position):
-				get_viewport().set_input_as_handled()
-				_on_action_pressed()
 	if event.is_action_pressed(&"set_hook"):
-		_try_set_hook()
+		if state == CastState.REELING: set_reel_held(true)
+		else: _on_action_pressed()
+	elif event.is_action_released(&"set_hook") and state == CastState.REELING:
+		set_reel_held(false)
+
+
+func configure_next_fight(configuration: Dictionary) -> void:
+	next_fight_configuration = configuration.duplicate(true)
+
+
+func get_fight_snapshot() -> Dictionary:
+	return fight_snapshot.duplicate(true)
+
+
+func set_reel_held(held: bool) -> void:
+	if state != CastState.REELING: return
+	reel_held = held
+	cast_button.modulate = Color(0.65, 0.9, 1.0) if held else Color.WHITE
 
 
 func _on_action_pressed() -> void:
-	if state == CastState.BITE:
-		_try_set_hook()
-		return
-
-	if state != CastState.READY:
-		return
-	await _start_cast()
+	if state == CastState.BITE: _try_set_hook()
+	elif state == CastState.READY: _start_cast()
 
 
 func _start_cast() -> void:
-	if not _can_start_spatial_cast():
-		_update_view(_get_spatial_block_reason())
+	if not _provider_bool("can_start_cast", true):
+		_update_view(_provider_string("get_cast_block_reason", "Cannot cast from here."))
 		return
-
 	cast_count += 1
 	cast_button.disabled = true
-	cast_button.text = "Cast"
 	await _run_cast_sequence()
-	cast_button.disabled = false
-	cast_button.text = "Cast"
 
 
 func _run_cast_sequence() -> void:
-	_begin_spatial_cast()
+	_provider_call("begin_cast")
 	state = CastState.CASTING
 	_update_view("You send the lure arcing over the water.")
-	await _wait_for_spatial_landing_feedback()
-
-	if not _did_last_cast_land_in_water():
-		state = CastState.RESULT
-		var failed_message := "Cast %d: missed the water (%s)." % [cast_count, _get_result_context()]
-		_record_journal(failed_message)
-		result_label.text = "Latest result: missed water"
-		quality_label.text = _get_result_context()
-		_update_view("The lure skips back without fishing. %s." % _get_result_context())
-		await get_tree().create_timer(0.9).timeout
-		state = CastState.READY
-		_update_view("Ready for another cast.")
+	await _wait_for_landing()
+	if not _provider_bool("did_last_cast_land_in_water", true):
+		await _finish_simple_result("missed water", "The lure skips back without fishing.")
 		return
-
-	var wait_duration := _get_waiting_for_bite_duration()
-	await _advance(
-		CastState.WAITING,
-		"The line settles. Watch the water and keep the rod ready.",
-		wait_duration
-	)
-	_trigger_bite_feedback()
+	state = CastState.WAITING
+	_update_view("The line settles. Watch the water and keep the rod ready.")
+	await get_tree().create_timer(_provider_float("get_waiting_for_bite_duration", 0.85)).timeout
+	_provider_call("trigger_bite_feedback")
 	hook_set = false
 	bite_window_open = true
 	state = CastState.BITE
@@ -123,94 +110,111 @@ func _run_cast_sequence() -> void:
 	_update_view("A sharp twitch snaps through the line. Set the hook!")
 	await get_tree().create_timer(0.75).timeout
 	bite_window_open = false
+	if not hook_set:
+		await _finish_simple_result("missed bite", "The twitch slips away before you set the hook.")
+		return
+	_begin_fight()
+	while state == CastState.REELING and int(fight_snapshot.get("outcome", 0)) == FishFightModel.Outcome.ONGOING:
+		await get_tree().process_frame
+	reel_held = false
+	if int(fight_snapshot.get("outcome", 0)) == FishFightModel.Outcome.LANDED:
+		await _finish_landed_fish()
+	else:
+		await _finish_fight_loss(int(fight_snapshot.get("outcome", 0)))
+
+
+func _begin_fight() -> void:
+	fight_model = FishFightModel.new()
+	var config := next_fight_configuration
+	next_fight_configuration = {}
+	if config.is_empty():
+		var recovery := []
+		for base in [3.2, 3.0, 3.1, 3.0]: recovery.append(float(base) + randf_range(-0.2, 0.2))
+		config = {"recovery_durations": recovery}
+	fight_model.start(config)
+	fight_snapshot = fight_model.snapshot()
+	_last_fight_phase = ""
+	state = CastState.REELING
+	cast_button.disabled = false
+	cast_button.text = "Hold to Reel"
+	tension_gauge.visible = true
+	tension_regions.visible = true
+	if not _tutorial_hold_shown:
+		_tutorial_hold_shown = true
+		tutorial_label.text = "Hold to reel while the fish recovers."
+	_provider_call("begin_reel_feedback", [999.0])
+	_update_view("The Dock Bluegill is hooked. Reel during recovery; yield when it surges.")
+
+
+func _present_fight() -> void:
+	tension_gauge.value = float(fight_snapshot.get("tension", 0.0)) * 100.0
+	var phase_name := String(fight_snapshot.get("phase_name", "recovery"))
+	if phase_name == "surge wind-up" and _last_fight_phase != phase_name:
+		_play_surge_cue()
+	_last_fight_phase = phase_name
+	message_label.text = "%s — %s" % [phase_name.capitalize(), "reeling" if reel_held else "yielding"]
+	if phase_name == "surge wind-up" and not _tutorial_release_shown:
+		_tutorial_release_shown = true
+		tutorial_label.text = "Surge coming — release to yield!"
+	var high := float(fight_snapshot.get("high_tension_danger", 0.0))
+	var slack := float(fight_snapshot.get("slack_danger", 0.0))
+	if (high > 0.0 or slack > 0.0) and not _tutorial_danger_shown:
+		_tutorial_danger_shown = true
+		tutorial_label.text = "Yield now — the line may break!" if high > 0.0 else "Reel now — the fish may throw the hook!"
+	var pulse := 0.55 + 0.45 * absf(sin(Time.get_ticks_msec() * 0.012))
+	tension_regions.get_node("Slack").modulate = Color(pulse, pulse, 1.0) if slack > 0.0 else Color.WHITE
+	tension_regions.get_node("Excessive").modulate = Color(1.0, pulse, pulse) if high > 0.0 else Color.WHITE
+	_provider_call("apply_fight_snapshot", [fight_snapshot, reel_held])
+
+
+func _finish_landed_fish() -> void:
+	state = CastState.LANDED_FISH
 	cast_button.disabled = true
-	cast_button.text = "Cast"
-
-	if hook_set:
-		_begin_reel_feedback()
-		await _advance(CastState.REELING, "You reel down and bring the fish closer.", 1.2)
-
+	_hide_fight_hud()
+	_provider_call("present_landed_fish")
+	_update_view("The bluegill breaks the surface — landed!")
+	await get_tree().create_timer(0.8).timeout
+	var name: String = BLUEGILL["name"]
+	var weight: float = BLUEGILL["weight"]
+	inventory[name] = inventory.get(name, 0) + 1
+	_record_journal("Cast %d: caught %s (%.1f lb, %s)." % [cast_count, name, weight, _context()])
+	result_label.text = "Latest result: %s, %.1f lb" % [name, weight]
+	quality_label.text = _context()
 	state = CastState.RESULT
-	var result_message := _resolve_hook_outcome()
-	_update_view(result_message)
-
-	await get_tree().create_timer(0.9).timeout
-	state = CastState.READY
-	_update_view("Ready for another cast.")
+	_update_view("You record the Dock Bluegill as a catch.")
+	await _return_ready()
 
 
-func _advance(next_state: CastState, message: String, duration: float) -> void:
-	state = next_state
+func _finish_fight_loss(outcome: int) -> void:
+	state = CastState.RESULT
+	_hide_fight_hud()
+	var broke := outcome == FishFightModel.Outcome.LINE_BREAK
+	var cause := "line break" if broke else "thrown hook"
+	_record_journal("Cast %d: %s (%s)." % [cast_count, cause, _context()])
+	result_label.text = "Latest result: %s" % cause
+	quality_label.text = _context()
+	_update_view(("The line breaks. Yield sooner during a surge." if broke else "The fish throws the hook. Reel during recovery."))
+	_provider_call("end_fight_presentation")
+	await _return_ready(0.7)
+
+
+func _finish_simple_result(label: String, message: String) -> void:
+	state = CastState.RESULT
+	_record_journal("Cast %d: %s (%s)." % [cast_count, label, _context()])
+	result_label.text = "Latest result: %s" % label
+	quality_label.text = _context()
 	_update_view(message)
-	await get_tree().create_timer(duration).timeout
+	await _return_ready()
 
 
-func _resolve_cast() -> String:
-	var landing_quality := _get_landing_quality()
-	var catch_chance := lerpf(0.25, 0.85, landing_quality)
-	var caught_fish := rng.randf() < catch_chance
-	if not caught_fish:
-		var empty_message := "Cast %d: empty water (%s)." % [cast_count, _get_result_context()]
-		_record_journal(empty_message)
-		result_label.text = "Latest result: nothing hooked"
-		quality_label.text = _get_result_context()
-		return "The lure comes back clean. %s." % _get_result_context()
-
-	var fish: Dictionary = FISH_TABLE[rng.randi_range(0, FISH_TABLE.size() - 1)]
-	var fish_name: String = fish["name"]
-	var fish_weight: float = fish["weight"]
-
-	inventory[fish_name] = inventory.get(fish_name, 0) + 1
-	var journal_entry := "Cast %d: caught %s (%.1f lb, %s)." % [
-		cast_count,
-		fish_name,
-		fish_weight,
-		_get_result_context(),
-	]
-	_record_journal(journal_entry)
-	result_label.text = "Latest result: %s, %.1f lb" % [fish_name, fish_weight]
-	quality_label.text = _get_result_context()
-	return "You land a %s. %s." % [fish_name, _get_result_context()]
-
-
-func _resolve_waiting_cast() -> String:
-	var entry := "Cast %d: waited for a bite (%s)." % [cast_count, _get_result_context()]
-	_record_journal(entry)
-	result_label.text = "Latest result: waiting water"
-	quality_label.text = _get_result_context()
-	return "The lure rests in the water. No bite yet, but this is fishable water. %s." % _get_result_context()
-
-
-func _resolve_bite_signal_cast() -> String:
-	var entry := "Cast %d: bite signaled (%s)." % [cast_count, _get_result_context()]
-	_record_journal(entry)
-	result_label.text = "Latest result: bite signaled"
-	quality_label.text = _get_result_context()
-	return "Something tapped the lure. Next step: set the hook. %s." % _get_result_context()
-
-
-func _resolve_hook_outcome() -> String:
-	if hook_set:
-		var fish: Dictionary = FISH_TABLE[0]
-		var fish_name: String = fish["name"]
-		var fish_weight: float = fish["weight"]
-		inventory[fish_name] = inventory.get(fish_name, 0) + 1
-		var entry := "Cast %d: caught %s (%.1f lb, %s)." % [
-			cast_count,
-			fish_name,
-			fish_weight,
-			_get_result_context(),
-		]
-		_record_journal(entry)
-		result_label.text = "Latest result: %s, %.1f lb" % [fish_name, fish_weight]
-		quality_label.text = _get_result_context()
-		return "Hook set. You bring in a %s. %s." % [fish_name, _get_result_context()]
-
-	var miss_entry := "Cast %d: missed the hook set (%s)." % [cast_count, _get_result_context()]
-	_record_journal(miss_entry)
-	result_label.text = "Latest result: missed bite"
-	quality_label.text = _get_result_context()
-	return "The twitch slips away before you set the hook. %s." % _get_result_context()
+func _return_ready(delay := 0.9) -> void:
+	await get_tree().create_timer(delay).timeout
+	state = CastState.READY
+	cast_button.disabled = false
+	cast_button.text = "Cast"
+	cast_button.modulate = Color.WHITE
+	tutorial_label.text = ""
+	_update_view("Ready for another cast.")
 
 
 func _try_set_hook() -> void:
@@ -218,132 +222,67 @@ func _try_set_hook() -> void:
 		hook_set = true
 		bite_window_open = false
 		cast_button.disabled = true
-		cast_button.text = "Cast"
 		_update_view("You snap the rod back and set the hook.")
-		return
+	elif state == CastState.WAITING: _update_view("Too early. Wait for a bite before setting the hook.")
 
-	if state == CastState.WAITING:
-		_update_view("Too early. Wait for a bite before setting the hook.")
+
+func _hide_fight_hud() -> void:
+	tension_gauge.visible = false
+	tension_regions.visible = false
+
+
+func _play_surge_cue() -> void:
+	surge_cue.play()
+	var playback := surge_cue.get_stream_playback() as AudioStreamGeneratorPlayback
+	if playback == null: return
+	var frames := PackedVector2Array()
+	for index in 1764:
+		var envelope := 1.0 - float(index) / 1764.0
+		var sample := sin(float(index) * TAU * 660.0 / 22050.0) * envelope * 0.22
+		frames.append(Vector2(sample, sample))
+	playback.push_buffer(frames)
 
 
 func _record_journal(entry: String) -> void:
 	journal.push_front(entry)
-	if journal.size() > 5:
-		journal.resize(5)
+	if journal.size() > 5: journal.resize(5)
 
 
 func _update_view(message: String) -> void:
 	state_label.text = "State: %s" % STATE_NAMES[state]
 	message_label.text = message
+	inventory_label.text = _inventory_text()
+	journal_label.text = _journal_text()
 	_update_spatial_view()
-	inventory_label.text = _format_inventory()
-	journal_label.text = _format_journal()
 
 
-func _can_start_spatial_cast() -> bool:
-	if spatial_casting_provider == null:
-		return true
-	if not spatial_casting_provider.has_method("can_start_cast"):
-		return true
-	return spatial_casting_provider.call("can_start_cast") as bool
+func _inventory_text() -> String:
+	if inventory.is_empty(): return "Inventory: empty"
+	var lines: Array[String] = []
+	for fish_name in inventory: lines.append("%s x%d" % [fish_name, inventory[fish_name]])
+	return "Inventory: %s" % ", ".join(lines)
 
 
-func _get_spatial_block_reason() -> String:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_cast_block_reason"):
-		return spatial_casting_provider.call("get_cast_block_reason") as String
-	return "Cannot cast from here."
+func _journal_text() -> String:
+	if journal.is_empty(): return "Journal:\n- No casts yet."
+	var lines: Array[String] = ["Journal:"]
+	for entry in journal: lines.append("- %s" % entry)
+	return "\n".join(lines)
 
 
-func _begin_spatial_cast() -> void:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("begin_cast"):
-		spatial_casting_provider.call("begin_cast")
-
-
-func _wait_for_spatial_landing_feedback() -> void:
+func _context() -> String: return _provider_string("get_result_context", "Landing quality: baseline")
+func _update_spatial_view() -> void: spatial_label.text = _provider_string("get_spatial_feedback", "Spatial: standalone cast mode")
+func _provider_bool(method: String, fallback: bool) -> bool: return spatial_casting_provider.call(method) as bool if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
+func _provider_float(method: String, fallback: float) -> float: return spatial_casting_provider.call(method) as float if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
+func _provider_string(method: String, fallback: String) -> String: return spatial_casting_provider.call(method) as String if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
+func _provider_call(method: String, args := []) -> void:
+	if spatial_casting_provider != null and spatial_casting_provider.has_method(method): spatial_casting_provider.callv(method, args)
+func _wait_for_landing() -> void:
 	if spatial_casting_provider == null:
 		await get_tree().create_timer(0.45).timeout
 		return
-
-	var timeout := 1.8
 	var elapsed := 0.0
-	var tick := 0.05
-	while elapsed < timeout:
-		await get_tree().create_timer(tick).timeout
-		elapsed += tick
-		if _is_spatial_cast_landed() and not _is_landing_feedback_visible():
-			return
-
-
-func _get_landing_quality() -> float:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_landing_quality"):
-		return spatial_casting_provider.call("get_landing_quality") as float
-	return 0.65
-
-
-func _did_last_cast_land_in_water() -> bool:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("did_last_cast_land_in_water"):
-		return spatial_casting_provider.call("did_last_cast_land_in_water") as bool
-	return _get_landing_quality() > 0.0
-
-
-func _is_spatial_cast_landed() -> bool:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("is_cast_landed"):
-		return spatial_casting_provider.call("is_cast_landed") as bool
-	return true
-
-
-func _is_landing_feedback_visible() -> bool:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("is_landing_feedback_visible"):
-		return spatial_casting_provider.call("is_landing_feedback_visible") as bool
-	return false
-
-
-func _get_waiting_for_bite_duration() -> float:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_waiting_for_bite_duration"):
-		return spatial_casting_provider.call("get_waiting_for_bite_duration") as float
-	return 0.85
-
-
-func _trigger_bite_feedback() -> void:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("trigger_bite_feedback"):
-		spatial_casting_provider.call("trigger_bite_feedback")
-
-
-func _begin_reel_feedback() -> void:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("begin_reel_feedback"):
-		spatial_casting_provider.call("begin_reel_feedback", 1.2)
-
-
-func _get_result_context() -> String:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_result_context"):
-		return spatial_casting_provider.call("get_result_context") as String
-	return "Landing quality: baseline"
-
-
-func _update_spatial_view() -> void:
-	if spatial_casting_provider != null and spatial_casting_provider.has_method("get_spatial_feedback"):
-		spatial_label.text = spatial_casting_provider.call("get_spatial_feedback") as String
-	else:
-		spatial_label.text = "Spatial: standalone cast mode"
-
-
-func _format_inventory() -> String:
-	if inventory.is_empty():
-		return "Inventory: empty"
-
-	var fish_lines: Array[String] = []
-	for fish_name in inventory.keys():
-		fish_lines.append("%s x%d" % [fish_name, inventory[fish_name]])
-
-	return "Inventory: %s" % ", ".join(fish_lines)
-
-
-func _format_journal() -> String:
-	if journal.is_empty():
-		return "Journal:\n- No casts yet."
-
-	var lines: Array[String] = ["Journal:"]
-	for entry in journal:
-		lines.append("- %s" % entry)
-
-	return "\n".join(lines)
+	while elapsed < 1.8:
+		await get_tree().create_timer(0.05).timeout
+		elapsed += 0.05
+		if _provider_bool("is_cast_landed", true) and not _provider_bool("is_landing_feedback_visible", false): return

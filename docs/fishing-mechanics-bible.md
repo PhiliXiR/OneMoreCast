@@ -36,19 +36,24 @@ The current prototype is a lure-first dock fishing loop.
 The current playable loop is:
 
 ```text
-Ready -> Casting -> Waiting -> Bite -> Reeling -> Result -> Ready
+Ready -> Casting -> Waiting -> Bite -> Reeling -> Landed Fish -> Result -> Ready
 ```
 
 The player stands near water, aims with a target marker, casts a placeholder
 lure, waits for a bite, presses the hook-set action during the bite window, then
-watches an automatic reel-in before receiving a fish result.
+holds the contextual action to reel during recovery and releases it to yield
+during a telegraphed surge. Line tension and landing progress determine whether
+the fish is landed, the line breaks, or the fish throws the hook.
 
 Current implementation facts:
 
 - The main rig is a lure-first rig.
 - Fish are abstract before the bite.
 - A hooked fish marker is spawned only after a successful hook-set.
-- Reeling is automatic.
+- Reeling is player-controlled through the existing contextual action.
+- Recovery, surge wind-up, and surge are internal phases of `REELING`.
+- A compact gauge communicates slack, safe tension, and excessive tension.
+- A landed fish is presented before inventory and journal record the catch.
 - Hook-set success is a simple timing-window check.
 - The line is rendered as a projected `Line2D` using world-space line points.
 - The line now follows an explicit invisible `LineEndpoint`.
@@ -61,7 +66,7 @@ Current implementation facts:
 Current prototype shortcuts:
 
 - `BITE` currently covers both bite signal and hook-set window.
-- `REELING` is a timed automatic visual beat, not an interactive tension system.
+- Fish-fight tuning currently exists only for the prototype Dock Bluegill.
 - Fish behavior is probability/state driven, not actor driven.
 - The line does not have true physical collision, weight, or water drag.
 - Landing quality is a simplified value derived from cast location.

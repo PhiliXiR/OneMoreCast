@@ -17,6 +17,8 @@ func _initialize() -> void:
 func _run_validation() -> void:
 	if not _validate_window_stretch_settings():
 		return
+	if not _validate_fight_model_outcomes():
+		return
 
 	var packed_scene := load(WORLD_SCENE) as PackedScene
 	if packed_scene == null:
@@ -112,6 +114,39 @@ func _run_validation() -> void:
 	quit(0)
 
 
+func _validate_fight_model_outcomes() -> bool:
+	var fast_config := {
+		"recovery_durations": [0.2, 0.2, 0.2, 0.2],
+		"windup_durations": [0.1, 0.1, 0.1],
+		"surge_durations": [0.2, 0.2, 0.2],
+		"danger_window": 0.25,
+	}
+	var success := FishFightModel.new()
+	success.start(fast_config)
+	for step in 500:
+		var snapshot := success.snapshot()
+		success.advance(0.05, String(snapshot["phase_name"]) == "recovery")
+		if int(success.snapshot()["outcome"]) != FishFightModel.Outcome.ONGOING: break
+	if int(success.snapshot()["outcome"]) != FishFightModel.Outcome.LANDED:
+		_fail("Recovery reeling and surge yielding should land the Dock Bluegill")
+		return false
+
+	var slack_loss := FishFightModel.new()
+	slack_loss.start({"recovery_durations": [2.0], "danger_window": 0.2})
+	for step in 30: slack_loss.advance(0.1, false)
+	if int(slack_loss.snapshot()["outcome"]) != FishFightModel.Outcome.THROWN_HOOK:
+		_fail("Sustained line slack should let the fish throw the hook")
+		return false
+
+	var line_break := FishFightModel.new()
+	line_break.start({"recovery_durations": [0.05], "windup_durations": [0.05], "surge_durations": [2.0], "danger_window": 0.2})
+	for step in 30: line_break.advance(0.1, true)
+	if int(line_break.snapshot()["outcome"]) != FishFightModel.Outcome.LINE_BREAK:
+		_fail("Sustained excessive line tension should break the line")
+		return false
+	return true
+
+
 func _require_node(parent: Node, path: NodePath) -> bool:
 	if parent.get_node_or_null(path) == null:
 		_fail("Missing node: %s" % path)
@@ -140,6 +175,10 @@ func _validate_casting_hud(casting_ui: Node) -> bool:
 	if cast_button == null:
 		_fail("Casting HUD is missing the cast button")
 		return false
+	for path in ["ActionPanel/Layout/TensionGauge", "ActionPanel/Layout/TensionRegions", "ActionPanel/Layout/TutorialLabel"]:
+		if casting_ui.get_node_or_null(path) == null:
+			_fail("Casting HUD is missing fish-fight feedback: %s" % path)
+			return false
 
 	if cast_button.mouse_filter != Control.MOUSE_FILTER_STOP:
 		_fail("Cast button must still receive mouse clicks")
@@ -224,6 +263,9 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"get_bite_feedback_label",
 		"begin_reel_feedback",
 		"is_reel_feedback_active",
+		"apply_fight_snapshot",
+		"present_landed_fish",
+		"end_fight_presentation",
 		"refresh_casting_visuals",
 	]:
 		if not spatial_casting.has_method(method):
@@ -629,12 +671,30 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if not saw_reeling:
 		_fail("Hook-set input should enter a reeling state before the catch result")
 		return false
-	for frame in 50:
+	if cast_button.text != "Hold to Reel":
+		_fail("Fish fight should label the contextual action Hold to Reel")
+		return false
+	var tension_gauge := casting_ui.get_node("ActionPanel/Layout/TensionGauge") as ProgressBar
+	if not tension_gauge.visible:
+		_fail("Line-tension gauge should be visible during the fish fight")
+		return false
+	# Follow the world-readable rhythm through the public controller snapshot.
+	var reeling_input_held := false
+	for frame in 500:
+		var snapshot: Dictionary = casting_ui.call("get_fight_snapshot") as Dictionary
+		var should_reel := String(snapshot.get("phase_name", "recovery")) == "recovery"
+		if should_reel != reeling_input_held:
+			_push_action(&"set_hook", should_reel)
+			reeling_input_held = should_reel
 		await create_timer(0.05).timeout
-		if state_label.text == "State: result":
-			break
+		if state_label.text == "State: landed fish":
+			if inventory_label.text.contains("Dock Bluegill"):
+				_fail("Catch must not be recorded before landed-fish presentation completes")
+				return false
+		if state_label.text == "State: result": break
+	if reeling_input_held: _push_action(&"set_hook", false)
 	if state_label.text != "State: result":
-		_fail("Hook-set input should resolve the bite into a result state")
+		_fail("Competent reel-or-yield input should resolve the fight into a result state")
 		return false
 	if not result_label.text.contains("Dock Bluegill"):
 		_fail("Hook-set input during the bite window should produce a named fish result")

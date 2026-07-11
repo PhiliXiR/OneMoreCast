@@ -44,3 +44,8 @@ Then manually open the project in Godot 4.7 and run the project from
 
 Do not treat a 4.5 or 4.6 validation failure as a project regression while the
 project file targets 4.7.
+
+For issue 58, Godot 4.7 successfully completed an editor filesystem scan and
+registered `FishFightModel`, providing a usable script/scene parse check. The
+full `validate_3d_prototype.gd` headless run still crashes with signal 11 before
+the validator can report gameplay assertions.

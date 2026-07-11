@@ -78,6 +78,8 @@ var _reel_start := Vector3.ZERO
 var _reel_end := Vector3.ZERO
 var _reel_caught_endpoint := Vector3.ZERO
 var _reel_feedback_completed := false
+var _fight_phase := "recovery"
+var _fight_reel_held := false
 
 
 func _ready() -> void:
@@ -260,6 +262,34 @@ func begin_reel_feedback(duration := 1.2) -> bool:
 
 func is_reel_feedback_active() -> bool:
 	return _reel_feedback_active
+
+
+func apply_fight_snapshot(snapshot: Dictionary, reel_held: bool) -> void:
+	if not _reel_feedback_active:
+		return
+	_fight_phase = String(snapshot.get("phase_name", "recovery"))
+	_fight_reel_held = reel_held
+	_reel_feedback_elapsed = clampf(float(snapshot.get("landing_progress", 0.0)), 0.0, 1.0) * _reel_feedback_duration
+	_update_reel_feedback(0.0)
+
+
+func present_landed_fish() -> void:
+	_reel_feedback_active = false
+	_reel_feedback_completed = true
+	var position := _get_underwater_reel_end() + Vector3.UP * 0.65
+	_set_line_endpoint_position(position)
+	_sync_terminal_tackle(position, true)
+	if hooked_fish_marker != null:
+		hooked_fish_marker.visible = true
+		hooked_fish_marker.global_position = position + Vector3.DOWN * 0.04
+	if hooked_fish_mouth_marker != null:
+		hooked_fish_mouth_marker.visible = true
+		hooked_fish_mouth_marker.global_position = position
+
+
+func end_fight_presentation() -> void:
+	_stop_reel_feedback()
+	_set_terminal_tackle_visible(false)
 
 
 func get_rod_tip_position() -> Vector3:
@@ -577,8 +607,9 @@ func _update_rod_motion() -> void:
 		var pulse := sin(clampf(_bite_feedback_elapsed / _bite_feedback_duration, 0.0, 1.0) * PI * 5.0)
 		target_rotation += Vector3(-0.12 * pulse, 0.0, 0.0)
 	if _reel_feedback_active:
-		var reel_pulse := sin(_get_reel_progress() * PI * 6.0)
-		target_rotation += Vector3(-0.08 - 0.05 * reel_pulse, 0.0, 0.0)
+		var reel_pulse := sin(Time.get_ticks_msec() * 0.016)
+		var load := 0.2 if _fight_phase == "surge" else (0.13 if _fight_phase == "surge wind-up" else 0.08)
+		target_rotation += Vector3(-load - (0.05 * reel_pulse if _fight_reel_held else 0.0), 0.0, 0.0)
 
 	_rod_cast_rotation = _rod_cast_rotation.lerp(target_rotation, 0.85)
 	rod_root.rotation = _rod_cast_rotation
@@ -728,7 +759,10 @@ func _get_reel_position() -> Vector3:
 	var progress := _ease_out_cubic(_get_reel_progress())
 	var position := _reel_start.lerp(_reel_end, progress)
 	position.y = _get_underwater_hook_y()
-	position += Vector3.DOWN * absf(sin(progress * PI * 5.0)) * 0.04
+	var motion := 0.12 if _fight_phase == "surge" else (0.07 if _fight_phase == "surge wind-up" else 0.04)
+	position += Vector3.DOWN * absf(sin(Time.get_ticks_msec() * 0.012)) * motion
+	if _fight_phase == "surge":
+		position += _get_cast_direction() * (0.16 + 0.08 * sin(Time.get_ticks_msec() * 0.018))
 	return position
 
 
