@@ -78,7 +78,7 @@ var _reel_start := Vector3.ZERO
 var _reel_end := Vector3.ZERO
 var _reel_caught_endpoint := Vector3.ZERO
 var _reel_feedback_completed := false
-var _fight_phase := "recovery"
+var _fight_phase := FishFightModel.Phase.RECOVERY
 var _fight_reel_held := false
 
 
@@ -267,10 +267,24 @@ func is_reel_feedback_active() -> bool:
 func apply_fight_snapshot(snapshot: Dictionary, reel_held: bool) -> void:
 	if not _reel_feedback_active:
 		return
-	_fight_phase = String(snapshot.get("phase_name", "recovery"))
+	_fight_phase = int(snapshot.get("phase", FishFightModel.Phase.RECOVERY))
 	_fight_reel_held = reel_held
+	if line_overlay != null:
+		line_overlay.width = _get_fight_line_width()
 	_reel_feedback_elapsed = clampf(float(snapshot.get("landing_progress", 0.0)), 0.0, 1.0) * _reel_feedback_duration
 	_update_reel_feedback(0.0)
+
+
+func _get_fight_line_width() -> float:
+	return [1.35, 1.85, 2.4][_fight_phase]
+
+
+func _get_fight_fish_motion() -> float:
+	return [0.04, 0.07, 0.12][_fight_phase]
+
+
+func _get_fight_rod_load() -> float:
+	return [0.08, 0.13, 0.2][_fight_phase]
 
 
 func present_landed_fish() -> void:
@@ -608,7 +622,7 @@ func _update_rod_motion() -> void:
 		target_rotation += Vector3(-0.12 * pulse, 0.0, 0.0)
 	if _reel_feedback_active:
 		var reel_pulse := sin(Time.get_ticks_msec() * 0.016)
-		var load := 0.2 if _fight_phase == "surge" else (0.13 if _fight_phase == "surge wind-up" else 0.08)
+		var load := _get_fight_rod_load()
 		target_rotation += Vector3(-load - (0.05 * reel_pulse if _fight_reel_held else 0.0), 0.0, 0.0)
 
 	_rod_cast_rotation = _rod_cast_rotation.lerp(target_rotation, 0.85)
@@ -759,9 +773,9 @@ func _get_reel_position() -> Vector3:
 	var progress := _ease_out_cubic(_get_reel_progress())
 	var position := _reel_start.lerp(_reel_end, progress)
 	position.y = _get_underwater_hook_y()
-	var motion := 0.12 if _fight_phase == "surge" else (0.07 if _fight_phase == "surge wind-up" else 0.04)
+	var motion := _get_fight_fish_motion()
 	position += Vector3.DOWN * absf(sin(Time.get_ticks_msec() * 0.012)) * motion
-	if _fight_phase == "surge":
+	if _fight_phase == FishFightModel.Phase.SURGE:
 		position += _get_cast_direction() * (0.16 + 0.08 * sin(Time.get_ticks_msec() * 0.018))
 	return position
 

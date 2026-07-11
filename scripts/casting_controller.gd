@@ -32,7 +32,7 @@ var next_fight_configuration := {}
 var _tutorial_hold_shown := false
 var _tutorial_release_shown := false
 var _tutorial_danger_shown := false
-var _last_fight_phase := ""
+var _last_fight_phase := -1
 
 
 func _ready() -> void:
@@ -68,6 +68,10 @@ func configure_next_fight(configuration: Dictionary) -> void:
 
 func get_fight_snapshot() -> Dictionary:
 	return fight_snapshot.duplicate(true)
+
+
+func is_surge_cue_playing() -> bool:
+	return surge_cue.playing
 
 
 func set_reel_held(held: bool) -> void:
@@ -128,12 +132,15 @@ func _begin_fight() -> void:
 	var config := next_fight_configuration
 	next_fight_configuration = {}
 	if config.is_empty():
-		var recovery := []
-		for base in [3.2, 3.0, 3.1, 3.0]: recovery.append(float(base) + randf_range(-0.2, 0.2))
-		config = {"recovery_durations": recovery}
+		config = {
+			"recovery_durations": _vary_durations([3.2, 3.0, 3.1, 3.0], 0.2),
+			"windup_durations": _vary_durations([1.25, 0.8, 0.75], 0.08),
+			"surge_durations": _vary_durations([1.35, 1.45, 1.35], 0.1),
+			"surge_count": randi_range(2, 3),
+		}
 	fight_model.start(config)
 	fight_snapshot = fight_model.snapshot()
-	_last_fight_phase = ""
+	_last_fight_phase = -1
 	state = CastState.REELING
 	cast_button.disabled = false
 	cast_button.text = "Hold to Reel"
@@ -146,19 +153,28 @@ func _begin_fight() -> void:
 	_update_view("The Dock Bluegill is hooked. Reel during recovery; yield when it surges.")
 
 
+func _vary_durations(base_durations: Array, variation: float) -> Array[float]:
+	var durations: Array[float] = []
+	for base in base_durations:
+		durations.append(float(base) + randf_range(-variation, variation))
+	return durations
+
+
 func _present_fight() -> void:
 	tension_gauge.value = float(fight_snapshot.get("tension", 0.0)) * 100.0
+	var phase := int(fight_snapshot.get("phase", FishFightModel.Phase.RECOVERY))
 	var phase_name := String(fight_snapshot.get("phase_name", "recovery"))
-	if phase_name == "surge wind-up" and _last_fight_phase != phase_name:
+	if phase == FishFightModel.Phase.SURGE_WINDUP and _last_fight_phase != phase:
 		_play_surge_cue()
-	_last_fight_phase = phase_name
+	_last_fight_phase = phase
 	message_label.text = "%s — %s" % [phase_name.capitalize(), "reeling" if reel_held else "yielding"]
-	if phase_name == "surge wind-up" and not _tutorial_release_shown:
+	if phase == FishFightModel.Phase.SURGE_WINDUP and not _tutorial_release_shown:
 		_tutorial_release_shown = true
 		tutorial_label.text = "Surge coming — release to yield!"
 	var high := float(fight_snapshot.get("high_tension_danger", 0.0))
 	var slack := float(fight_snapshot.get("slack_danger", 0.0))
-	if (high > 0.0 or slack > 0.0) and not _tutorial_danger_shown:
+	var failures_enabled := bool(fight_snapshot.get("resolve_failures", false))
+	if failures_enabled and (high > 0.0 or slack > 0.0) and not _tutorial_danger_shown:
 		_tutorial_danger_shown = true
 		tutorial_label.text = "Yield now — the line may break!" if high > 0.0 else "Reel now — the fish may throw the hook!"
 	var pulse := 0.55 + 0.45 * absf(sin(Time.get_ticks_msec() * 0.012))

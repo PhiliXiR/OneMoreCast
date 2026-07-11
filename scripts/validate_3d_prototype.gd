@@ -133,6 +133,64 @@ func _validate_fight_model_outcomes() -> bool:
 		_fail("Holding reel should land a recovery-only hooked fish")
 		return false
 
+	var surge_response := FishFightModel.new()
+	surge_response.start({
+		"recovery_only": false,
+		"recovery_durations": [0.4, 0.4],
+		"windup_durations": [0.3, 0.1],
+		"surge_durations": [4.0, 0.2],
+		"surge_count": 2,
+		"danger_window": 10.0,
+		"recovery_reel_rate": 0.5,
+	})
+	var initial_snapshot := surge_response.snapshot()
+	if int(initial_snapshot["phase"]) != FishFightModel.Phase.RECOVERY:
+		_fail("A fish fight must begin in recovery before its first surge wind-up")
+		return false
+	if not is_equal_approx(float(initial_snapshot["phase_duration"]), 0.4):
+		_fail("Configured phase durations should be selected at fight start")
+		return false
+	surge_response.advance(0.4, true)
+	var windup_snapshot := surge_response.snapshot()
+	if int(windup_snapshot["phase"]) != FishFightModel.Phase.SURGE_WINDUP:
+		_fail("Recovery should lead into a surge wind-up")
+		return false
+	if not is_equal_approx(float(windup_snapshot["phase_duration"]), 0.3):
+		_fail("The first deterministic surge wind-up duration should remain stable")
+		return false
+	surge_response.advance(0.3, true)
+	var surge_start := surge_response.snapshot()
+	if int(surge_start["phase"]) != FishFightModel.Phase.SURGE:
+		_fail("Surge wind-up should lead into a surge")
+		return false
+	var tension_before_reeling: float = surge_start["tension"]
+	surge_response.advance(0.2, true)
+	if float(surge_response.snapshot()["tension"]) <= tension_before_reeling:
+		_fail("Reeling during a surge should rapidly raise line tension")
+		return false
+	if int(surge_response.snapshot()["outcome"]) != FishFightModel.Outcome.ONGOING:
+		_fail("A brief surge response should remain playable instead of resolving a line break")
+		return false
+	var progress_before_yielding: float = surge_response.snapshot()["landing_progress"]
+	var tension_before_yielding: float = surge_response.snapshot()["tension"]
+	surge_response.advance(0.2, false)
+	var yielding_snapshot := surge_response.snapshot()
+	if float(yielding_snapshot["tension"]) >= tension_before_yielding:
+		_fail("Yielding during a surge should move line tension toward safety")
+		return false
+	if float(yielding_snapshot["landing_progress"]) >= progress_before_yielding:
+		_fail("Yielding during a surge should let the hooked fish regain modest distance")
+		return false
+	for step in 14:
+		surge_response.advance(0.2, false)
+	var floor_snapshot := surge_response.snapshot()
+	if float(floor_snapshot["landing_progress"]) < float(floor_snapshot["surge_progress_floor"]):
+		_fail("A surge must not erase landing progress below its captured floor")
+		return false
+	if float(floor_snapshot["surge_progress_floor"]) <= 0.0:
+		_fail("A surge after recovery should retain a non-zero landing-progress floor")
+		return false
+
 	var fast_config := {
 		"recovery_only": false,
 		"recovery_durations": [0.2, 0.2, 0.2, 0.2],
@@ -144,21 +202,21 @@ func _validate_fight_model_outcomes() -> bool:
 	success.start(fast_config)
 	for step in 500:
 		var snapshot := success.snapshot()
-		success.advance(0.05, String(snapshot["phase_name"]) == "recovery")
+		success.advance(0.05, int(snapshot["phase"]) == FishFightModel.Phase.RECOVERY)
 		if int(success.snapshot()["outcome"]) != FishFightModel.Outcome.ONGOING: break
 	if int(success.snapshot()["outcome"]) != FishFightModel.Outcome.LANDED:
 		_fail("Recovery reeling and surge yielding should land the Dock Bluegill")
 		return false
 
 	var slack_loss := FishFightModel.new()
-	slack_loss.start({"recovery_only": false, "recovery_durations": [2.0], "danger_window": 0.2})
+	slack_loss.start({"recovery_only": false, "recovery_durations": [2.0], "danger_window": 0.2, "resolve_failures": true})
 	for step in 30: slack_loss.advance(0.1, false)
 	if int(slack_loss.snapshot()["outcome"]) != FishFightModel.Outcome.THROWN_HOOK:
 		_fail("Sustained line slack should let the fish throw the hook")
 		return false
 
 	var line_break := FishFightModel.new()
-	line_break.start({"recovery_only": false, "recovery_durations": [0.05], "windup_durations": [0.05], "surge_durations": [2.0], "danger_window": 0.2})
+	line_break.start({"recovery_only": false, "recovery_durations": [0.05], "windup_durations": [0.05], "surge_durations": [2.0], "danger_window": 0.2, "resolve_failures": true})
 	for step in 30: line_break.advance(0.1, true)
 	if int(line_break.snapshot()["outcome"]) != FishFightModel.Outcome.LINE_BREAK:
 		_fail("Sustained excessive line tension should break the line")
@@ -627,8 +685,13 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	var result_label := casting_ui.get_node("ActionPanel/Layout/ResultLabel") as Label
 	var inventory_label := casting_ui.get_node("LogPanel/Layout/InventoryLabel") as Label
 	casting_ui.call("configure_next_fight", {
-		"recovery_only": true,
+		"recovery_only": false,
 		"recovery_reel_rate": 0.5,
+		"recovery_durations": [0.35, 0.3, 0.3],
+		"windup_durations": [0.3, 0.12],
+		"surge_durations": [0.25, 0.25],
+		"surge_count": 2,
+		"danger_window": 2.0,
 	})
 	cast_button.pressed.emit()
 	await process_frame
@@ -744,9 +807,52 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if cast_button.modulate == Color.WHITE:
 		_fail("Keyboard hold should use the same held presentation as the on-screen button")
 		return false
+	var saw_windup := false
+	var saw_surge := false
+	var saw_recovery_after_surge := false
+	var active_phase := FishFightModel.Phase.RECOVERY
+	var recovery_rod_offset := absf(float(spatial_casting.call("get_rod_cast_motion_offset")))
+	var windup_fish_origin := Vector3.ZERO
+	var surge_fish_origin := Vector3.ZERO
+	var windup_fish_motion := 0.0
+	var surge_fish_motion := 0.0
 	var saw_landed_fish := false
-	for frame in 100:
+	for frame in 220:
 		await create_timer(0.05).timeout
+		fight_snapshot = casting_ui.call("get_fight_snapshot") as Dictionary
+		var phase := int(fight_snapshot.get("phase", FishFightModel.Phase.RECOVERY))
+		var should_reel := phase == FishFightModel.Phase.RECOVERY
+		if phase != active_phase:
+			_push_action(&"set_hook", should_reel)
+			active_phase = phase
+		if phase == FishFightModel.Phase.SURGE_WINDUP:
+			var first_windup_frame := not saw_windup
+			if first_windup_frame:
+				windup_fish_origin = hooked_fish.global_position
+			saw_windup = true
+			windup_fish_motion = maxf(windup_fish_motion, hooked_fish.global_position.distance_to(windup_fish_origin))
+			if not tutorial_label.text.contains("release to yield"):
+				_fail("The first surge wind-up should teach release-to-yield")
+				return false
+			if first_windup_frame and not (casting_ui.call("is_surge_cue_playing") as bool):
+				_fail("A lightweight audio cue should accompany surge wind-up")
+				return false
+			if float(spatial_casting.call("get_line_overlay_width")) <= 1.35:
+				_fail("Surge wind-up should visibly load the rod and fishing line")
+				return false
+			if absf(float(spatial_casting.call("get_rod_cast_motion_offset"))) <= recovery_rod_offset:
+				_fail("Surge wind-up should visibly load the rod beyond recovery")
+				return false
+		if phase == FishFightModel.Phase.SURGE:
+			if not saw_surge:
+				surge_fish_origin = hooked_fish.global_position
+			saw_surge = true
+			surge_fish_motion = maxf(surge_fish_motion, hooked_fish.global_position.distance_to(surge_fish_origin))
+			if float(spatial_casting.call("get_line_overlay_width")) <= 1.85:
+				_fail("A surge should intensify fish and fishing-line behavior beyond wind-up")
+				return false
+		if phase == FishFightModel.Phase.RECOVERY and saw_surge:
+			saw_recovery_after_surge = true
 		if state_label.text == "State: landed fish":
 			saw_landed_fish = true
 			if inventory_label.text.contains("Dock Bluegill"):
@@ -754,6 +860,12 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 				return false
 		if state_label.text == "State: result": break
 	_push_action(&"set_hook", false)
+	if not saw_windup or not saw_surge or not saw_recovery_after_surge:
+		_fail("Playable fight should alternate through recovery, surge wind-up, surge, and recovery")
+		return false
+	if windup_fish_motion <= 0.005 or surge_fish_motion <= windup_fish_motion:
+		_fail("Hooked-fish movement should visibly escalate from wind-up into surge")
+		return false
 	if not saw_landed_fish:
 		_fail("Landing threshold should enter a distinct landed-fish presentation")
 		return false

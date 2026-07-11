@@ -10,7 +10,8 @@ const DEFAULT_CONFIG := {
 	"surge_durations": [1.35, 1.45, 1.35],
 	"surge_count": 3,
 	"danger_window": 0.9,
-	"recovery_only": true,
+	"resolve_failures": false,
+	"recovery_only": false,
 	"recovery_reel_rate": 0.115,
 }
 
@@ -70,7 +71,9 @@ func advance(delta: float, reel_held: bool) -> Dictionary:
 	if outcome != Outcome.ONGOING:
 		return snapshot()
 
-	if landing_progress >= 1.0 and (bool(_config["recovery_only"]) or surge_count >= 2):
+	if landing_progress >= 1.0 and (
+		bool(_config["recovery_only"]) or surge_count >= int(_config["surge_count"])
+	):
 		outcome = Outcome.LANDED
 		return snapshot()
 
@@ -90,6 +93,8 @@ func snapshot() -> Dictionary:
 		"slack_danger": slack_danger,
 		"surge_count": surge_count,
 		"surge_progress_floor": _surge_progress_floor,
+		"phase_duration": _get_phase_duration(),
+		"resolve_failures": bool(_config["resolve_failures"]),
 	}
 
 
@@ -99,6 +104,19 @@ func phase_name() -> String:
 
 func outcome_name() -> String:
 	return ["ongoing", "landed", "line break", "thrown hook"][outcome]
+
+
+func _get_phase_duration() -> float:
+	match phase:
+		Phase.RECOVERY:
+			var durations: Array = _config["recovery_durations"]
+			return float(durations[min(surge_count, durations.size() - 1)])
+		Phase.SURGE_WINDUP:
+			var durations: Array = _config["windup_durations"]
+			return float(durations[min(surge_count, durations.size() - 1)])
+		_:
+			var durations: Array = _config["surge_durations"]
+			return float(durations[min(surge_count, durations.size() - 1)])
 
 
 func _update_danger(delta: float) -> void:
@@ -115,9 +133,9 @@ func _update_danger(delta: float) -> void:
 		slack_danger += delta
 	else:
 		slack_danger = maxf(0.0, slack_danger - delta * 2.4)
-	if high_tension_danger >= danger_window:
+	if bool(_config["resolve_failures"]) and high_tension_danger >= danger_window:
 		outcome = Outcome.LINE_BREAK
-	elif slack_danger >= danger_window:
+	elif bool(_config["resolve_failures"]) and slack_danger >= danger_window:
 		outcome = Outcome.THROWN_HOOK
 
 
@@ -126,20 +144,17 @@ func _advance_phase_if_needed() -> void:
 		Phase.RECOVERY:
 			if bool(_config["recovery_only"]):
 				return
-			var durations: Array = _config["recovery_durations"]
-			if _phase_elapsed >= float(durations[min(surge_count, durations.size() - 1)]):
+			if _phase_elapsed >= _get_phase_duration():
 				if surge_count < int(_config["surge_count"]):
 					_set_phase(Phase.SURGE_WINDUP)
 				elif landing_progress < 1.0:
 					_phase_elapsed = 0.0
 		Phase.SURGE_WINDUP:
-			var durations: Array = _config["windup_durations"]
-			if _phase_elapsed >= float(durations[min(surge_count, durations.size() - 1)]):
+			if _phase_elapsed >= _get_phase_duration():
 				_surge_progress_floor = maxf(0.0, landing_progress - 0.1)
 				_set_phase(Phase.SURGE)
 		Phase.SURGE:
-			var durations: Array = _config["surge_durations"]
-			if _phase_elapsed >= float(durations[min(surge_count, durations.size() - 1)]):
+			if _phase_elapsed >= _get_phase_duration():
 				surge_count += 1
 				_set_phase(Phase.RECOVERY)
 
