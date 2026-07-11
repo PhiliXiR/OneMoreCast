@@ -10,6 +10,8 @@ const DEFAULT_CONFIG := {
 	"surge_durations": [1.35, 1.45, 1.35],
 	"surge_count": 3,
 	"danger_window": 0.9,
+	"recovery_only": true,
+	"recovery_reel_rate": 0.115,
 }
 
 var phase := Phase.RECOVERY
@@ -49,7 +51,10 @@ func advance(delta: float, reel_held: bool) -> Dictionary:
 		Phase.RECOVERY:
 			if reel_held:
 				tension = move_toward(tension, 0.56, delta * 0.42)
-				landing_progress = minf(landing_progress + delta * 0.115, 1.0)
+				landing_progress = minf(
+					landing_progress + delta * float(_config["recovery_reel_rate"]),
+					1.0
+				)
 			else:
 				tension = move_toward(tension, 0.0, delta * 0.22)
 		Phase.SURGE_WINDUP:
@@ -65,7 +70,7 @@ func advance(delta: float, reel_held: bool) -> Dictionary:
 	if outcome != Outcome.ONGOING:
 		return snapshot()
 
-	if landing_progress >= 1.0 and surge_count >= 2:
+	if landing_progress >= 1.0 and (bool(_config["recovery_only"]) or surge_count >= 2):
 		outcome = Outcome.LANDED
 		return snapshot()
 
@@ -97,6 +102,10 @@ func outcome_name() -> String:
 
 
 func _update_danger(delta: float) -> void:
+	if bool(_config["recovery_only"]):
+		high_tension_danger = 0.0
+		slack_danger = 0.0
+		return
 	var danger_window := float(_config["danger_window"])
 	if tension >= 0.86:
 		high_tension_danger += delta
@@ -115,6 +124,8 @@ func _update_danger(delta: float) -> void:
 func _advance_phase_if_needed() -> void:
 	match phase:
 		Phase.RECOVERY:
+			if bool(_config["recovery_only"]):
+				return
 			var durations: Array = _config["recovery_durations"]
 			if _phase_elapsed >= float(durations[min(surge_count, durations.size() - 1)]):
 				if surge_count < int(_config["surge_count"]):

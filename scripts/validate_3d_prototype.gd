@@ -115,7 +115,26 @@ func _run_validation() -> void:
 
 
 func _validate_fight_model_outcomes() -> bool:
+	var recovery_only := FishFightModel.new()
+	recovery_only.start({"recovery_only": true, "recovery_reel_rate": 0.5})
+	var starting_tension: float = recovery_only.snapshot()["tension"]
+	recovery_only.advance(0.5, false)
+	if float(recovery_only.snapshot()["tension"]) >= starting_tension:
+		_fail("Yielding during recovery should lower line tension")
+		return false
+	if int(recovery_only.snapshot()["outcome"]) != FishFightModel.Outcome.ONGOING:
+		_fail("Yielding during the recovery-only fight should not throw the hook")
+		return false
+	for step in 50:
+		recovery_only.advance(0.05, true)
+		if int(recovery_only.snapshot()["outcome"]) != FishFightModel.Outcome.ONGOING:
+			break
+	if int(recovery_only.snapshot()["outcome"]) != FishFightModel.Outcome.LANDED:
+		_fail("Holding reel should land a recovery-only hooked fish")
+		return false
+
 	var fast_config := {
+		"recovery_only": false,
 		"recovery_durations": [0.2, 0.2, 0.2, 0.2],
 		"windup_durations": [0.1, 0.1, 0.1],
 		"surge_durations": [0.2, 0.2, 0.2],
@@ -132,14 +151,14 @@ func _validate_fight_model_outcomes() -> bool:
 		return false
 
 	var slack_loss := FishFightModel.new()
-	slack_loss.start({"recovery_durations": [2.0], "danger_window": 0.2})
+	slack_loss.start({"recovery_only": false, "recovery_durations": [2.0], "danger_window": 0.2})
 	for step in 30: slack_loss.advance(0.1, false)
 	if int(slack_loss.snapshot()["outcome"]) != FishFightModel.Outcome.THROWN_HOOK:
 		_fail("Sustained line slack should let the fish throw the hook")
 		return false
 
 	var line_break := FishFightModel.new()
-	line_break.start({"recovery_durations": [0.05], "windup_durations": [0.05], "surge_durations": [2.0], "danger_window": 0.2})
+	line_break.start({"recovery_only": false, "recovery_durations": [0.05], "windup_durations": [0.05], "surge_durations": [2.0], "danger_window": 0.2})
 	for step in 30: line_break.advance(0.1, true)
 	if int(line_break.snapshot()["outcome"]) != FishFightModel.Outcome.LINE_BREAK:
 		_fail("Sustained excessive line tension should break the line")
@@ -607,18 +626,11 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	var state_label := casting_ui.get_node("ActionPanel/Layout/StateLabel") as Label
 	var result_label := casting_ui.get_node("ActionPanel/Layout/ResultLabel") as Label
 	var inventory_label := casting_ui.get_node("LogPanel/Layout/InventoryLabel") as Label
-	var button_center := cast_button.get_global_rect().get_center()
-	var mouse_press := InputEventMouseButton.new()
-	mouse_press.button_index = MOUSE_BUTTON_LEFT
-	mouse_press.pressed = true
-	mouse_press.position = button_center
-	root.push_input(mouse_press)
-	await process_frame
-	var mouse_release := InputEventMouseButton.new()
-	mouse_release.button_index = MOUSE_BUTTON_LEFT
-	mouse_release.pressed = false
-	mouse_release.position = button_center
-	root.push_input(mouse_release)
+	casting_ui.call("configure_next_fight", {
+		"recovery_only": true,
+		"recovery_reel_rate": 0.5,
+	})
+	cast_button.pressed.emit()
 	await process_frame
 	if state_label.text == "State: ready":
 		_fail(
@@ -678,21 +690,76 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if not tension_gauge.visible:
 		_fail("Line-tension gauge should be visible during the fish fight")
 		return false
-	# Follow the world-readable rhythm through the public controller snapshot.
-	var reeling_input_held := false
-	for frame in 500:
-		var snapshot: Dictionary = casting_ui.call("get_fight_snapshot") as Dictionary
-		var should_reel := String(snapshot.get("phase_name", "recovery")) == "recovery"
-		if should_reel != reeling_input_held:
-			_push_action(&"set_hook", should_reel)
-			reeling_input_held = should_reel
+	var tension_regions := casting_ui.get_node("ActionPanel/Layout/TensionRegions") as HBoxContainer
+	if not tension_regions.visible:
+		_fail("Line-tension regions should be visible during the fish fight")
+		return false
+	if tension_regions.get_node("Slack").text != "SLACK":
+		_fail("Line-tension gauge should distinguish the slack region")
+		return false
+	if not tension_regions.get_node("Safe").text.contains("SAFE TENSION"):
+		_fail("Line-tension gauge should distinguish safe tension")
+		return false
+	if tension_regions.get_node("Excessive").text != "EXCESSIVE":
+		_fail("Line-tension gauge should distinguish high tension")
+		return false
+	var tutorial_label := casting_ui.get_node("ActionPanel/Layout/TutorialLabel") as Label
+	if not tutorial_label.text.contains("Hold to reel"):
+		_fail("The first fight should show the hold-to-reel instruction")
+		return false
+	var spatial_casting := casting_ui.get_node("../../SpatialCasting")
+	var endpoint_before_reeling := spatial_casting.call("get_line_endpoint") as Vector3
+	var fight_snapshot: Dictionary = casting_ui.call("get_fight_snapshot") as Dictionary
+	var yielded_tension: float = fight_snapshot.get("tension", 0.0)
+	await create_timer(0.15).timeout
+	fight_snapshot = casting_ui.call("get_fight_snapshot") as Dictionary
+	var tension_after_yield: float = fight_snapshot.get("tension", 0.0)
+	if tension_after_yield >= yielded_tension:
+		_fail("Released contextual input should yield and lower line tension")
+		return false
+	var hook_marker := casting_ui.get_node("../../HookMarker") as MeshInstance3D
+	var hooked_fish := casting_ui.get_node("../../HookedFishMarker") as MeshInstance3D
+	var hooked_fish_mouth := casting_ui.get_node("../../HookedFishMouthMarker") as MeshInstance3D
+	if hook_marker.global_position.y >= spatial_casting.get("water_center").y:
+		_fail("Hook should remain underwater during the interactive fight")
+		return false
+	if hooked_fish.global_position.y >= spatial_casting.get("water_center").y:
+		_fail("Hooked fish should remain underwater during the interactive fight")
+		return false
+	if hooked_fish_mouth.global_position.distance_to(hook_marker.global_position) > 0.03:
+		_fail("Hook should remain attached at the hooked fish mouth during the fight")
+		return false
+	cast_button.button_down.emit()
+	await process_frame
+	if cast_button.modulate == Color.WHITE:
+		_fail("On-screen hold-to-reel input should visibly acknowledge its held state")
+		return false
+	cast_button.button_up.emit()
+	await process_frame
+	if cast_button.modulate != Color.WHITE:
+		_fail("On-screen release should immediately return to yielding presentation")
+		return false
+	_push_action(&"set_hook", true)
+	await process_frame
+	if cast_button.modulate == Color.WHITE:
+		_fail("Keyboard hold should use the same held presentation as the on-screen button")
+		return false
+	var saw_landed_fish := false
+	for frame in 100:
 		await create_timer(0.05).timeout
 		if state_label.text == "State: landed fish":
+			saw_landed_fish = true
 			if inventory_label.text.contains("Dock Bluegill"):
 				_fail("Catch must not be recorded before landed-fish presentation completes")
 				return false
 		if state_label.text == "State: result": break
-	if reeling_input_held: _push_action(&"set_hook", false)
+	_push_action(&"set_hook", false)
+	if not saw_landed_fish:
+		_fail("Landing threshold should enter a distinct landed-fish presentation")
+		return false
+	if (spatial_casting.call("get_line_endpoint") as Vector3).distance_to(endpoint_before_reeling) <= 0.2:
+		_fail("Landing progress should move the hooked-fish presentation toward the rod")
+		return false
 	if state_label.text != "State: result":
 		_fail("Competent reel-or-yield input should resolve the fight into a result state")
 		return false
