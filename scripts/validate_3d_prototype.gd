@@ -155,8 +155,8 @@ func _require_node(parent: Node, path: NodePath) -> bool:
 
 
 func _validate_window_stretch_settings() -> bool:
-	var stretch_mode := ProjectSettings.get_setting("display/window/stretch/mode", "")
-	var stretch_aspect := ProjectSettings.get_setting("display/window/stretch/aspect", "")
+	var stretch_mode: String = ProjectSettings.get_setting("display/window/stretch/mode", "")
+	var stretch_aspect: String = ProjectSettings.get_setting("display/window/stretch/aspect", "")
 	if stretch_mode != "canvas_items":
 		_fail("Window stretch mode must be canvas_items so UI hitboxes stay aligned with rendered controls")
 		return false
