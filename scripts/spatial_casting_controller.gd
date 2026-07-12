@@ -88,6 +88,7 @@ var _fight_phase := FishFightModel.Phase.RECOVERY
 var _fight_reel_held := false
 var _fight_landing_progress := 0.0
 var _fish_animation_player: AnimationPlayer
+var _fish_mouth_anchor: Node3D
 var _fish_silhouette_material := StandardMaterial3D.new()
 var _fish_using_silhouette := false
 
@@ -116,6 +117,7 @@ func _ready() -> void:
 	if hooked_fish_marker != null:
 		hooked_fish_marker.visible = false
 		_fish_animation_player = _find_animation_player(hooked_fish_marker)
+		_fish_mouth_anchor = hooked_fish_marker.get_node_or_null("DockBluegill/FishMouthAnchor") as Node3D
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = false
 		hooked_fish_mouth_marker.material_override = _fish_mouth_material
@@ -334,7 +336,7 @@ func begin_reel_feedback(duration := 1.2) -> bool:
 	_sync_terminal_tackle(_reel_start, true)
 	if hooked_fish_marker != null:
 		hooked_fish_marker.visible = true
-		hooked_fish_marker.global_position = _get_hooked_fish_position(_reel_start, 0.0)
+		_set_hooked_fish_mouth_position(_reel_start)
 		_set_fish_silhouette(true)
 		_play_fish_animation(&"calm_swim")
 	if hooked_fish_mouth_marker != null:
@@ -412,7 +414,7 @@ func present_landed_fish() -> void:
 	_sync_terminal_tackle(position, true)
 	if hooked_fish_marker != null:
 		hooked_fish_marker.visible = true
-		hooked_fish_marker.global_position = position + Vector3.DOWN * 0.04
+		_set_hooked_fish_mouth_position(position)
 		_set_fish_silhouette(false)
 		_play_fish_animation(&"landed_presentation")
 	if hooked_fish_mouth_marker != null:
@@ -885,7 +887,7 @@ func _update_reel_feedback(delta: float) -> void:
 	_set_line_endpoint_position(position)
 	_sync_terminal_tackle(position, true)
 	if hooked_fish_marker != null:
-		hooked_fish_marker.global_position = _get_hooked_fish_position(position, _get_reel_progress())
+		_set_hooked_fish_mouth_position(position)
 		hooked_fish_marker.rotation.y = 0.0
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = true
@@ -931,6 +933,15 @@ func _get_hooked_fish_position(line_position: Vector3, progress: float) -> Vecto
 	fish_position += _get_cast_direction() * cos(swim_time * 0.7) * phase_motion * 0.45
 	fish_position.y += sin(swim_time * 1.6) * phase_motion * 0.32
 	return fish_position
+
+
+func _set_hooked_fish_mouth_position(attachment_position: Vector3) -> void:
+	if hooked_fish_marker == null:
+		return
+	hooked_fish_marker.global_position = attachment_position
+	if _fish_mouth_anchor != null:
+		var mouth_offset := _fish_mouth_anchor.global_position - hooked_fish_marker.global_position
+		hooked_fish_marker.global_position = attachment_position - mouth_offset
 
 
 func _get_underwater_reel_end() -> Vector3:

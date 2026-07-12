@@ -151,6 +151,9 @@ position = Vector3(0, 0, 0.08)
 rotation_degrees = Vector3(0, -90, 0)
 scale = Vector3(0.32, 0.32, 0.32)
 
+[node name="FishMouthAnchor" type="Node3D" parent="HookedFishMarker/DockBluegill"]
+position = Vector3(1.05, 0, 0)
+
 [node name="HookedFishMouthMarker" type="MeshInstance3D" parent="."]
 visible = false
 mesh = SubResource("SphereMesh_fish_mouth")

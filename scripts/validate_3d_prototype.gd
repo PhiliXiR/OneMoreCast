@@ -886,6 +886,10 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if hooked_fish_mouth.global_position.distance_to(hook_marker.global_position) > 0.03:
 		_fail("Hook should remain attached at the hooked fish mouth during the fight")
 		return false
+	var bluegill_mouth := hooked_fish.get_node_or_null("DockBluegill/FishMouthAnchor") as Node3D
+	if bluegill_mouth == null or bluegill_mouth.global_position.distance_to(hook_marker.global_position) > 0.03:
+		_fail("Hook should attach to the authored Dock Bluegill mouth anchor during the fight")
+		return false
 	if hooked_fish.get_node_or_null("DockBluegill") == null:
 		_fail("Hooked-fish presentation should instance the approved Dock Bluegill asset")
 		return false
