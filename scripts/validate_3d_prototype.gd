@@ -228,8 +228,20 @@ func _validate_fight_model_outcomes() -> bool:
 		return false
 
 	var line_break := FishFightModel.new()
-	line_break.start({"recovery_only": false, "recovery_durations": [0.05], "windup_durations": [0.05], "surge_durations": [2.0], "danger_window": 0.2, "resolve_failures": true})
-	for step in 30: line_break.advance(0.1, true)
+	line_break.start({"recovery_only": false, "recovery_durations": [0.05], "windup_durations": [0.05], "surge_durations": [3.0], "danger_window": 0.6})
+	for step in 9: line_break.advance(0.1, true)
+	var recoverable_high_tension := line_break.snapshot()
+	if float(recoverable_high_tension["high_tension_danger"]) <= 0.0:
+		_fail("Reeling through a surge should accumulate high-tension danger")
+		return false
+	if int(recoverable_high_tension["outcome"]) != FishFightModel.Outcome.ONGOING:
+		_fail("Brief excessive line tension should remain recoverable through a danger window")
+		return false
+	for step in 5: line_break.advance(0.1, false)
+	if not is_zero_approx(float(line_break.snapshot()["high_tension_danger"])):
+		_fail("Yielding to safe tension should fully drain brief line-break danger quickly")
+		return false
+	for step in 20: line_break.advance(0.1, true)
 	if int(line_break.snapshot()["outcome"]) != FishFightModel.Outcome.LINE_BREAK:
 		_fail("Sustained excessive line tension should break the line")
 		return false
@@ -946,6 +958,81 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		if state_label.text == "State: ready": break
 	if state_label.text != "State: ready" or cast_button.disabled:
 		_fail("Thrown-hook result should return promptly to cast readiness")
+		return false
+	var inventory_before_line_break := inventory_label.text
+	casting_ui.call("configure_next_fight", {
+		"recovery_only": false,
+		"recovery_durations": [0.1],
+		"windup_durations": [0.1],
+		"surge_durations": [3.0],
+		"surge_count": 1,
+		"danger_window": 0.35,
+	})
+	cast_button.pressed.emit()
+	for frame in 80:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: bite": break
+	_push_action(&"set_hook", true)
+	_push_action(&"set_hook", false)
+	for frame in 40:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: reeling": break
+	_push_action(&"set_hook", true)
+	var saw_high_tension_danger := false
+	var saw_high_tension_warning := false
+	var saw_high_tension_pulse := false
+	var saw_line_break_landed_presentation := false
+	for frame in 60:
+		await create_timer(0.05).timeout
+		fight_snapshot = casting_ui.call("get_fight_snapshot") as Dictionary
+		if float(fight_snapshot.get("high_tension_danger", 0.0)) > 0.0:
+			saw_high_tension_danger = true
+		if tutorial_label.text.contains("line may break"):
+			saw_high_tension_warning = true
+		if tension_regions.get_node("Excessive").modulate != Color.WHITE:
+			saw_high_tension_pulse = true
+		if saw_high_tension_danger and saw_high_tension_warning and saw_high_tension_pulse: break
+	_push_action(&"set_hook", false)
+	if not saw_high_tension_danger or not saw_high_tension_warning or not saw_high_tension_pulse:
+		_fail("Line-break danger should accumulate visibly with a cause-specific warning and excessive-region pulse")
+		return false
+	for frame in 40:
+		await create_timer(0.05).timeout
+		fight_snapshot = casting_ui.call("get_fight_snapshot") as Dictionary
+		if is_zero_approx(float(fight_snapshot.get("high_tension_danger", 0.0))): break
+	if int(fight_snapshot.get("outcome", FishFightModel.Outcome.ONGOING)) != FishFightModel.Outcome.ONGOING:
+		_fail("Yielding after brief excessive tension should keep the hooked fish playable")
+		return false
+	if not is_zero_approx(float(fight_snapshot.get("high_tension_danger", 0.0))):
+		_fail("Yielding through the playable-world input should quickly drain line-break danger")
+		return false
+	await process_frame
+	if tension_regions.get_node("Excessive").modulate != Color.WHITE:
+		_fail("The excessive-tension pulse should clear after yielding back to safety")
+		return false
+	_push_action(&"set_hook", true)
+	for frame in 120:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: landed fish": saw_line_break_landed_presentation = true
+		if state_label.text == "State: result": break
+	_push_action(&"set_hook", false)
+	if saw_line_break_landed_presentation:
+		_fail("A line break should skip the landed-fish presentation")
+		return false
+	if not result_label.text.contains("line break") or not message_label.text.contains("Yield sooner"):
+		_fail("Line-break result should identify the cause and give a corrective hint")
+		return false
+	if not journal_label.text.contains("line break"):
+		_fail("Journal should distinguish a line break from other outcomes")
+		return false
+	if inventory_label.text != inventory_before_line_break:
+		_fail("A line break must not add inventory or consume existing catch records")
+		return false
+	for frame in 25:
+		await create_timer(0.05).timeout
+		if state_label.text == "State: ready": break
+	if state_label.text != "State: ready" or cast_button.disabled:
+		_fail("Line-break result should return promptly to cast readiness")
 		return false
 	return true
 

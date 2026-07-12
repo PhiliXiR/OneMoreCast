@@ -12,7 +12,7 @@ const DEFAULT_CONFIG := {
 	"danger_window": 0.9,
 	"resolve_failures": false,
 	"resolve_slack_failure": true,
-	"resolve_high_tension_failure": false,
+	"resolve_high_tension_failure": true,
 	"recovery_only": false,
 	"recovery_reel_rate": 0.115,
 }
