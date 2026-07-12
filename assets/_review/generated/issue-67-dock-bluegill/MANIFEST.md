@@ -13,7 +13,7 @@
 - Source URL or local reference: One More Cast repository.
 - License: Project-owned generated asset.
 - Attribution required: No.
-- Generated or imported by: Codex.
+- Generated or imported by: Codex; revised against side-profile references from Illinois DNR and the U.S. National Park Service.
 - Date: 2026-07-11.
 
 ## Contents
@@ -24,7 +24,7 @@
 
 ## Review Notes
 
-- What should be evaluated: silhouette, tall fins, vertical bars, ear flap, palette, skeleton reuse, and the three named clips.
+- What should be evaluated: deep laterally compressed silhouette, spiny dorsal/anal fins, textured olive-to-yellow body and bars, dark opercular flap behind the eye, skeleton reuse, and the three named clips.
 - Approval criteria: Blender source opens; GLB imports under Godot Compatibility; `calm_swim`, `struggle_surge`, and `landed_presentation` run in the preview; the reviewer records approval on issue #67.
 - Decision: Pending human review.
 - Follow-up issues: #68 (integration), if approved.
