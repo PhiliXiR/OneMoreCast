@@ -139,6 +139,7 @@ func refresh_casting_visuals(delta := 0.0) -> void:
 	_update_rod_motion()
 	_update_landing_feedback(delta)
 	_update_tackle_readability()
+	_update_waiting_lure_reaction()
 	_draw_projected_line()
 
 
@@ -149,6 +150,13 @@ func _update_tackle_readability() -> void:
 		lake_surface.call("set_tackle_readability", hook_marker.global_position, 1.25, 0.72)
 	else:
 		lake_surface.call("set_tackle_readability", Vector3.ZERO, 0.0, 0.0)
+
+
+func _update_waiting_lure_reaction() -> void:
+	if lake_surface == null or not lake_surface.has_method("set_waiting_lure_reaction"):
+		return
+	var waiting := did_last_cast_land_in_water() and is_cast_landed() and not _bite_feedback_active and not _reel_feedback_active
+	lake_surface.call("set_waiting_lure_reaction", _cast_destination, waiting)
 
 
 func can_start_cast() -> bool:
@@ -467,7 +475,13 @@ func _update_cast_motion(delta: float) -> void:
 	if progress >= 1.0:
 		_phase = CastPhase.LANDED_SLACK
 		_landed_elapsed = 0.0
-		_show_landing_feedback(_cast_destination, target_valid and player_near_water)
+		var landed_in_water := target_valid and player_near_water
+		if landed_in_water and lake_surface != null and lake_surface.has_method("request_cast_entry"):
+			_landing_feedback_label = "water splash"
+			_landing_feedback_visible = false
+			lake_surface.call("request_cast_entry", _cast_destination, clampf(last_landing_quality, 0.35, 1.0), 1.0)
+		else:
+			_show_landing_feedback(_cast_destination, false)
 		_update_landed_line(0.0)
 
 

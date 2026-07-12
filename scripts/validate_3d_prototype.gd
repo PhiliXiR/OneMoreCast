@@ -64,10 +64,6 @@ func _run_validation() -> void:
 		return
 	if not _require_node(world, "LandingFeedback"):
 		return
-	if not _require_node(world, "LandingFeedback/WaterRippleOuter"):
-		return
-	if not _require_node(world, "LandingFeedback/WaterRippleInner"):
-		return
 	if not _require_node(world, "LandingFeedback/MissPuff"):
 		return
 	if not _require_node(world, "FishingLine"):
@@ -541,15 +537,15 @@ func _validate_rod_and_line(world: Node) -> bool:
 	if hook_marker.global_position.distance_to(line_endpoint) > 0.2:
 		_fail("HookMarker should stay attached to the endpoint after landing")
 		return false
-	if not (spatial_casting.call("is_landing_feedback_visible") as bool):
-		_fail("Water landing feedback should be visible as the lure lands")
-		return false
 	if spatial_casting.call("get_landing_feedback_label") as String != "water splash":
 		_fail("Water landing should register water splash feedback")
 		return false
-	var landing_feedback := world.get_node("LandingFeedback") as Node3D
-	if landing_feedback.global_position.distance_to(target_point + Vector3.UP * 0.15) > 0.35:
-		_fail("Landing feedback should appear at the lure landing point")
+	var lake_surface := world.get_node("LakeSurface") as LakeSurface
+	if lake_surface == null or not lake_surface.is_cast_entry_reaction_active():
+		_fail("Water landing should request an active lake-surface cast-entry reaction")
+		return false
+	if not lake_surface.is_waiting_lure_reaction_active():
+		_fail("Landed tackle should activate a readable waiting-lure reaction")
 		return false
 
 	for frame in 18:
@@ -641,6 +637,12 @@ func _validate_rod_and_line(world: Node) -> bool:
 		_fail("Hooked fish should stay underwater until it gets closer to the rod")
 		return false
 
+	var cast_entry_requests := 0
+	lake_surface.reaction_requested.connect(
+		func(reaction: LakeSurface.Reaction, _world_position: Vector3, _strength: float, _radius: float) -> void:
+			if reaction == LakeSurface.Reaction.CAST_ENTRY:
+				cast_entry_requests += 1
+	)
 	spatial_casting.set("water_center", Vector3(100.0, original_water_center.y, 100.0))
 	spatial_casting.call("refresh_casting_visuals")
 	await process_frame
@@ -656,6 +658,12 @@ func _validate_rod_and_line(world: Node) -> bool:
 		return false
 	if spatial_casting.call("trigger_bite_feedback") as bool:
 		_fail("Off-water landing should not trigger bite feedback")
+		return false
+	if lake_surface.is_waiting_lure_reaction_active():
+		_fail("Off-water landing should not keep a waiting-lure reaction active")
+		return false
+	if cast_entry_requests != 0:
+		_fail("Off-water landing should not request a lake-surface cast-entry reaction")
 		return false
 	spatial_casting.set("water_center", original_water_center)
 	spatial_casting.call("refresh_casting_visuals")

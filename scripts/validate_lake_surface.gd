@@ -21,6 +21,9 @@ func _run_validation() -> void:
 	if not lake_surface.has_method("request_localized_reaction"):
 		_fail("Lake surface cannot receive localized reaction requests")
 		return
+	if not lake_surface.has_method("request_cast_entry") or not lake_surface.has_method("set_waiting_lure_reaction"):
+		_fail("Lake surface is missing semantic cast-entry or waiting-lure reactions")
+		return
 
 	var observed_reaction := {}
 	lake_surface.localized_reaction_requested.connect(
@@ -36,6 +39,19 @@ func _run_validation() -> void:
 		"radius": 1.5,
 	}:
 		_fail("Lake surface did not preserve the semantic localized reaction request")
+		return
+	var observed_semantic_reactions: Array = []
+	lake_surface.reaction_requested.connect(
+		func(reaction: LakeSurface.Reaction, world_position: Vector3, strength: float, radius: float) -> void:
+			observed_semantic_reactions.append([reaction, world_position, strength, radius])
+	)
+	lake_surface.request_cast_entry(Vector3(1.0, 0.0, 8.0), 0.8, 1.2)
+	lake_surface.set_waiting_lure_reaction(Vector3(1.0, 0.0, 8.0), true)
+	if not lake_surface.is_cast_entry_reaction_active() or not lake_surface.is_waiting_lure_reaction_active():
+		_fail("Lake surface did not retain active semantic reactions")
+		return
+	if observed_semantic_reactions.size() != 2 or observed_semantic_reactions[0][0] != LakeSurface.Reaction.CAST_ENTRY or observed_semantic_reactions[1][0] != LakeSurface.Reaction.WAITING_LURE:
+		_fail("Lake surface did not expose cast-entry and waiting-lure reactions distinctly")
 		return
 
 	var mesh_instance := lake_surface.get_node_or_null("Mesh") as MeshInstance3D
