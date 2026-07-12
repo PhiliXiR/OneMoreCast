@@ -345,6 +345,8 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"get_line_endpoint",
 		"get_lure_marker_position",
 		"get_hook_marker_position",
+		"get_hooked_fish_animation",
+		"is_hooked_fish_silhouette",
 		"get_line_points_world",
 		"get_line_state_label",
 		"get_line_overlay_width",
@@ -634,7 +636,7 @@ func _validate_rod_and_line(world: Node) -> bool:
 	if not (spatial_casting.call("is_reel_feedback_active") as bool):
 		_fail("Reel feedback should become active")
 		return false
-	var hooked_fish_marker := world.get_node("HookedFishMarker") as MeshInstance3D
+	var hooked_fish_marker := world.get_node("HookedFishMarker") as Node3D
 	var hooked_fish_mouth_marker := world.get_node("HookedFishMouthMarker") as MeshInstance3D
 	if not hooked_fish_marker.visible:
 		_fail("Hooked fish marker should appear during reel feedback")
@@ -866,7 +868,7 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		_fail("Released contextual input should yield and lower line tension")
 		return false
 	var hook_marker := casting_ui.get_node("../../HookMarker") as MeshInstance3D
-	var hooked_fish := casting_ui.get_node("../../HookedFishMarker") as MeshInstance3D
+	var hooked_fish := casting_ui.get_node("../../HookedFishMarker") as Node3D
 	var hooked_fish_mouth := casting_ui.get_node("../../HookedFishMouthMarker") as MeshInstance3D
 	var lake_surface := casting_ui.get_node("../../LakeSurface") as LakeSurface
 	var fight_water_reactions: Array = []
@@ -883,6 +885,15 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		return false
 	if hooked_fish_mouth.global_position.distance_to(hook_marker.global_position) > 0.03:
 		_fail("Hook should remain attached at the hooked fish mouth during the fight")
+		return false
+	if hooked_fish.get_node_or_null("DockBluegill") == null:
+		_fail("Hooked-fish presentation should instance the approved Dock Bluegill asset")
+		return false
+	if spatial_casting.call("get_hooked_fish_animation") as StringName != &"calm_swim":
+		_fail("Recovery should play the Dock Bluegill calm swimming animation")
+		return false
+	if not (spatial_casting.call("is_hooked_fish_silhouette") as bool):
+		_fail("Early fight presentation should keep the Dock Bluegill as an underwater silhouette")
 		return false
 	cast_button.button_down.emit()
 	await process_frame
@@ -935,6 +946,9 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 			if absf(float(spatial_casting.call("get_rod_cast_motion_offset"))) <= recovery_rod_offset:
 				_fail("Surge wind-up should visibly load the rod beyond recovery")
 				return false
+			if spatial_casting.call("get_hooked_fish_animation") as StringName != &"struggle_surge":
+				_fail("Surge wind-up should switch the Dock Bluegill to its struggle animation")
+				return false
 		if phase == FishFightModel.Phase.SURGE:
 			if not saw_surge:
 				surge_fish_origin = hooked_fish.global_position
@@ -947,6 +961,9 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 			saw_recovery_after_surge = true
 		if state_label.text == "State: landed fish":
 			saw_landed_fish = true
+			if spatial_casting.call("get_hooked_fish_animation") as StringName != &"landed_presentation":
+				_fail("Only the landed-fish presentation should play the Dock Bluegill landed animation")
+				return false
 			if inventory_label.text.contains("Dock Bluegill"):
 				_fail("Catch must not be recorded before landed-fish presentation completes")
 				return false
@@ -1039,6 +1056,9 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if state_label.text != "State: ready" or cast_button.disabled:
 		_fail("Thrown-hook result should return promptly to cast readiness")
 		return false
+	if hooked_fish.visible:
+		_fail("A thrown hook should resolve the hooked Dock Bluegill without a landed presentation")
+		return false
 	var inventory_before_line_break := inventory_label.text
 	casting_ui.call("configure_next_fight", {
 		"recovery_only": false,
@@ -1116,6 +1136,9 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		if state_label.text == "State: ready": break
 	if state_label.text != "State: ready" or cast_button.disabled:
 		_fail("Line-break result should return promptly to cast readiness")
+		return false
+	if hooked_fish.visible:
+		_fail("A line break should resolve the hooked Dock Bluegill without a landed presentation")
 		return false
 	return true
 

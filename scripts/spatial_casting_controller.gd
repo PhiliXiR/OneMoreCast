@@ -29,7 +29,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @onready var lure_marker: MeshInstance3D = get_node_or_null(lure_marker_path) as MeshInstance3D
 @onready var hook_marker: MeshInstance3D = get_node_or_null(hook_marker_path) as MeshInstance3D
 @onready var line_endpoint: Node3D = get_node_or_null(line_endpoint_path) as Node3D
-@onready var hooked_fish_marker: MeshInstance3D = get_node_or_null(hooked_fish_marker_path) as MeshInstance3D
+@onready var hooked_fish_marker: Node3D = get_node_or_null(hooked_fish_marker_path) as Node3D
 @onready var hooked_fish_mouth_marker: MeshInstance3D = get_node_or_null(hooked_fish_mouth_marker_path) as MeshInstance3D
 @onready var rod_root: Node3D = get_node_or_null(rod_root_path) as Node3D
 @onready var rod_tip: Node3D = get_node_or_null(rod_tip_path) as Node3D
@@ -48,7 +48,6 @@ var _valid_material := StandardMaterial3D.new()
 var _invalid_material := StandardMaterial3D.new()
 var _lure_material := StandardMaterial3D.new()
 var _hook_material := StandardMaterial3D.new()
-var _fish_material := StandardMaterial3D.new()
 var _fish_mouth_material := StandardMaterial3D.new()
 var _water_feedback_material := StandardMaterial3D.new()
 var _miss_feedback_material := StandardMaterial3D.new()
@@ -87,6 +86,10 @@ var _reel_caught_endpoint := Vector3.ZERO
 var _reel_feedback_completed := false
 var _fight_phase := FishFightModel.Phase.RECOVERY
 var _fight_reel_held := false
+var _fight_landing_progress := 0.0
+var _fish_animation_player: AnimationPlayer
+var _fish_silhouette_material := StandardMaterial3D.new()
+var _fish_using_silhouette := false
 
 
 func _ready() -> void:
@@ -94,13 +97,12 @@ func _ready() -> void:
 	_invalid_material.albedo_color = Color(1.0, 0.32, 0.24, 0.55)
 	_lure_material.albedo_color = Color(1.0, 0.66, 0.18, 1.0)
 	_hook_material.albedo_color = Color(0.08, 0.08, 0.07, 1.0)
-	_fish_material.albedo_color = Color(0.22, 0.74, 0.92, 1.0)
 	_fish_mouth_material.albedo_color = Color(0.02, 0.03, 0.035, 1.0)
 	_configure_marker_material(_valid_material, Color(0.32, 1.0, 0.74, 0.55))
 	_configure_marker_material(_invalid_material, Color(1.0, 0.32, 0.24, 0.55))
 	_configure_marker_material(_lure_material, Color(1.0, 0.66, 0.18, 1.0))
 	_configure_marker_material(_hook_material, Color(0.08, 0.08, 0.07, 1.0))
-	_configure_fish_material()
+	_configure_fish_silhouette_material()
 	_configure_feedback_material(_water_feedback_material, Color(0.65, 0.95, 1.0, 0.82))
 	_configure_feedback_material(_miss_feedback_material, Color(1.0, 0.38, 0.12, 0.82))
 	if lure_marker != null:
@@ -113,7 +115,7 @@ func _ready() -> void:
 		line_endpoint.visible = false
 	if hooked_fish_marker != null:
 		hooked_fish_marker.visible = false
-		hooked_fish_marker.material_override = _fish_material
+		_fish_animation_player = _find_animation_player(hooked_fish_marker)
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = false
 		hooked_fish_mouth_marker.material_override = _fish_mouth_material
@@ -323,6 +325,7 @@ func begin_reel_feedback(duration := 1.2) -> bool:
 	_reel_feedback_completed = false
 	_reel_feedback_elapsed = 0.0
 	_reel_feedback_duration = maxf(duration, 0.1)
+	_fight_landing_progress = 0.0
 	_reel_start = _cast_destination
 	_reel_end = _get_underwater_reel_end()
 	_reel_caught_endpoint = get_rod_tip_position() + _get_cast_direction() * 0.2 + Vector3.DOWN * 0.12
@@ -332,6 +335,8 @@ func begin_reel_feedback(duration := 1.2) -> bool:
 	if hooked_fish_marker != null:
 		hooked_fish_marker.visible = true
 		hooked_fish_marker.global_position = _get_hooked_fish_position(_reel_start, 0.0)
+		_set_fish_silhouette(true)
+		_play_fish_animation(&"calm_swim")
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = true
 		hooked_fish_mouth_marker.global_position = _reel_start
@@ -348,9 +353,12 @@ func apply_fight_snapshot(snapshot: Dictionary, reel_held: bool) -> void:
 		return
 	_fight_phase = int(snapshot.get("phase", FishFightModel.Phase.RECOVERY))
 	_fight_reel_held = reel_held
+	_fight_landing_progress = clampf(float(snapshot.get("landing_progress", 0.0)), 0.0, 1.0)
+	_play_fish_animation(&"calm_swim" if _fight_phase == FishFightModel.Phase.RECOVERY else &"struggle_surge")
+	_set_fish_silhouette(_fight_landing_progress < 0.38)
 	if line_overlay != null:
 		line_overlay.width = _get_fight_line_width()
-		_reel_feedback_elapsed = clampf(float(snapshot.get("landing_progress", 0.0)), 0.0, 1.0) * _reel_feedback_duration
+		_reel_feedback_elapsed = _fight_landing_progress * _reel_feedback_duration
 		_update_reel_feedback(0.0)
 	_request_fight_water_reaction(float(snapshot.get("tension", 0.48)))
 
@@ -398,12 +406,15 @@ func _get_hooked_fish_surface_position() -> Vector3:
 func present_landed_fish() -> void:
 	_reel_feedback_active = false
 	_reel_feedback_completed = true
+	_fight_landing_progress = 1.0
 	var position := _get_underwater_reel_end() + Vector3.UP * 0.65
 	_set_line_endpoint_position(position)
 	_sync_terminal_tackle(position, true)
 	if hooked_fish_marker != null:
 		hooked_fish_marker.visible = true
 		hooked_fish_marker.global_position = position + Vector3.DOWN * 0.04
+		_set_fish_silhouette(false)
+		_play_fish_animation(&"landed_presentation")
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = true
 		hooked_fish_mouth_marker.global_position = position
@@ -414,6 +425,9 @@ func end_fight_presentation() -> void:
 	_clear_fight_water_reaction()
 	_stop_reel_feedback()
 	_set_terminal_tackle_visible(false)
+	if hooked_fish_marker != null:
+		hooked_fish_marker.visible = false
+	_set_fish_silhouette(false)
 
 
 func get_rod_tip_position() -> Vector3:
@@ -438,6 +452,14 @@ func get_hook_marker_position() -> Vector3:
 	if hook_marker == null:
 		return Vector3.ZERO
 	return hook_marker.global_position
+
+
+func get_hooked_fish_animation() -> StringName:
+	return _fish_animation_player.current_animation if _fish_animation_player != null else &""
+
+
+func is_hooked_fish_silhouette() -> bool:
+	return _fish_using_silhouette
 
 
 func get_line_points_world() -> Array[Vector3]:
@@ -888,7 +910,7 @@ func _get_reel_progress() -> float:
 func _get_reel_position() -> Vector3:
 	var progress := _ease_out_cubic(_get_reel_progress())
 	var position := _reel_start.lerp(_reel_end, progress)
-	position.y = _get_underwater_hook_y()
+	position.y = water_center.y - lerpf(0.72, 0.08, progress)
 	var motion := _get_fight_fish_motion()
 	position += Vector3.DOWN * absf(sin(Time.get_ticks_msec() * 0.012)) * motion
 	if _fight_phase == FishFightModel.Phase.SURGE:
@@ -897,9 +919,9 @@ func _get_reel_position() -> Vector3:
 
 
 func _get_hooked_fish_position(line_position: Vector3, progress: float) -> Vector3:
-	var fish_position := line_position + _get_cast_direction() * 0.08 + Vector3.DOWN * 0.04
-	fish_position.y = line_position.y - 0.04
-	fish_position.y += sin(progress * PI * 8.0) * 0.05
+	var fish_position := line_position + _get_cast_direction() * 0.08
+	fish_position.y = line_position.y
+	fish_position.y += sin(progress * PI * 8.0) * (0.035 + _get_fight_fish_motion() * 0.22)
 	return fish_position
 
 
@@ -924,6 +946,7 @@ func _stop_reel_feedback() -> void:
 	_reel_feedback_completed = false
 	if hooked_fish_marker != null:
 		hooked_fish_marker.visible = false
+	_set_fish_silhouette(false)
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = false
 	_clear_fight_water_reaction()
@@ -976,10 +999,41 @@ func _configure_feedback_material(material: StandardMaterial3D, color: Color) ->
 	material.emission_energy_multiplier = 0.9
 
 
-func _configure_fish_material() -> void:
-	_fish_material.roughness = 0.42
-	_fish_material.metallic = 0.0
-	_fish_material.albedo_color = Color(0.22, 0.74, 0.92, 1.0)
+func _configure_fish_silhouette_material() -> void:
+	_fish_silhouette_material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	_fish_silhouette_material.roughness = 0.7
+	_fish_silhouette_material.albedo_color = Color(0.035, 0.12, 0.15, 1.0)
+
+
+func _find_animation_player(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		return node as AnimationPlayer
+	for child in node.get_children():
+		var player := _find_animation_player(child)
+		if player != null:
+			return player
+	return null
+
+
+func _play_fish_animation(animation_name: StringName) -> void:
+	if _fish_animation_player == null or not _fish_animation_player.has_animation(animation_name):
+		return
+	if _fish_animation_player.current_animation != animation_name:
+		_fish_animation_player.play(animation_name)
+
+
+func _set_fish_silhouette(enabled: bool) -> void:
+	if hooked_fish_marker == null or _fish_using_silhouette == enabled:
+		return
+	_fish_using_silhouette = enabled
+	_apply_fish_material_override(hooked_fish_marker, _fish_silhouette_material if enabled else null)
+
+
+func _apply_fish_material_override(root: Node, material: Material) -> void:
+	if root is MeshInstance3D:
+		(root as MeshInstance3D).material_override = material
+	for child in root.get_children():
+		_apply_fish_material_override(child, material)
 
 
 func _apply_marker_material(root: Node, material: StandardMaterial3D) -> void:

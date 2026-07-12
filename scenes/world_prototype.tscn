@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=26 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/spatial_casting_controller.gd" id="4_spatial"]
 [ext_resource type="PackedScene" path="res://scenes/docks/dock_straight_01.tscn" id="5_dock"]
 [ext_resource type="PackedScene" path="res://world/lake_surface.tscn" id="6_lake_surface"]
+[ext_resource type="PackedScene" path="res://assets/fish/dock_bluegill.glb" id="7_bluegill"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_ground"]
 size = Vector3(24, 0.2, 11)
@@ -142,10 +143,13 @@ mesh = SubResource("SphereMesh_hook")
 [node name="LineEndpoint" type="Node3D" parent="."]
 visible = false
 
-[node name="HookedFishMarker" type="MeshInstance3D" parent="."]
+[node name="HookedFishMarker" type="Node3D" parent="."]
 visible = false
-scale = Vector3(1.4, 0.65, 0.55)
-mesh = SubResource("SphereMesh_hooked_fish")
+
+[node name="DockBluegill" parent="HookedFishMarker" instance=ExtResource("7_bluegill")]
+position = Vector3(0, 0, 0.08)
+rotation_degrees = Vector3(0, -90, 0)
+scale = Vector3(0.9, 0.9, 0.9)
 
 [node name="HookedFishMouthMarker" type="MeshInstance3D" parent="."]
 visible = false
