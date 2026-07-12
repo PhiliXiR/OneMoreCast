@@ -886,7 +886,7 @@ func _update_reel_feedback(delta: float) -> void:
 	_sync_terminal_tackle(position, true)
 	if hooked_fish_marker != null:
 		hooked_fish_marker.global_position = _get_hooked_fish_position(position, _get_reel_progress())
-		hooked_fish_marker.rotation.y += delta * 7.0
+		hooked_fish_marker.rotation.y = 0.0
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = true
 		hooked_fish_mouth_marker.global_position = position
@@ -921,7 +921,15 @@ func _get_reel_position() -> Vector3:
 func _get_hooked_fish_position(line_position: Vector3, progress: float) -> Vector3:
 	var fish_position := line_position + _get_cast_direction() * 0.08
 	fish_position.y = line_position.y
-	fish_position.y += sin(progress * PI * 8.0) * (0.035 + _get_fight_fish_motion() * 0.22)
+	var phase_motion: float = [0.025, 0.055, 0.1][_fight_phase]
+	var phase_speed: float = [1.4, 2.4, 4.2][_fight_phase]
+	var swim_time: float = Time.get_ticks_msec() * 0.001 * phase_speed
+	var lateral := _get_cast_direction().cross(Vector3.UP).normalized()
+	if lateral.length_squared() <= 0.0001:
+		lateral = Vector3.RIGHT
+	fish_position += lateral * sin(swim_time) * phase_motion
+	fish_position += _get_cast_direction() * cos(swim_time * 0.7) * phase_motion * 0.45
+	fish_position.y += sin(swim_time * 1.6) * phase_motion * 0.32
 	return fish_position
 
 

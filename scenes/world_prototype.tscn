@@ -149,7 +149,7 @@ visible = false
 [node name="DockBluegill" parent="HookedFishMarker" instance=ExtResource("7_bluegill")]
 position = Vector3(0, 0, 0.08)
 rotation_degrees = Vector3(0, -90, 0)
-scale = Vector3(0.9, 0.9, 0.9)
+scale = Vector3(0.32, 0.32, 0.32)
 
 [node name="HookedFishMouthMarker" type="MeshInstance3D" parent="."]
 visible = false
