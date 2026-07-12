@@ -26,9 +26,11 @@ body=mat("Bluegill olive body",(.29,.50,.28),True); belly,fin,dark,eye=[mat(n,c)
 sphere("Bluegill_Body",(0,0,0),(1.04,.34,.78),body); sphere("Bluegill_Belly",(.08,-.20,-.28),(.85,.18,.37),belly)
 for i,x in enumerate([-.40,-.18,.04,.26]): sphere("Bluegill_Vertical_Bar_%02d"%i,(x,-.338,.05),(.030,.015,.43),dark)
 sphere("Bluegill_Ear_Flap",(.43,-.33,.12),(.18,.03,.26),dark); sphere("Bluegill_Eye",(.68,-.34,.29),(.075,.025,.075),eye); sphere("Bluegill_Eye_Back",(.685,-.355,.29),(.032,.014,.032),dark)
+for i,x in enumerate([-.40,-.18,.04,.26]): sphere("Bluegill_Vertical_Bar_Reverse_%02d"%i,(x,.338,.05),(.030,.015,.43),dark)
+sphere("Bluegill_Ear_Flap_Reverse",(.43,.33,.12),(.18,.03,.26),dark); sphere("Bluegill_Eye_Reverse",(.68,.34,.29),(.075,.025,.075),eye); sphere("Bluegill_Eye_Back_Reverse",(.685,.355,.29),(.032,.014,.032),dark)
 cone("Bluegill_Dorsal_Fin",(-.08,0,.72),(.58,.07,.36),(0,math.pi/2,0),fin)
 for i,x in enumerate([-.38,-.22,-.06,.10,.26]): cone("Bluegill_Dorsal_Ray_%02d"%i,(x,-.01,.76),(.055,.025,.28-abs(x)*.09),(0,0,0),fin)
-cone("Bluegill_Anal_Fin",(-.08,0,-.69),(.40,.07,.30),(0,math.pi/2,math.pi),fin); cone("Bluegill_Pectoral_Fin",(.28,-.32,-.05),(.32,.05,.35),(.35,.55,-.25),fin); cone("Bluegill_Tail",(-1.02,0,0),(.30,.07,.55),(0,-math.pi/2,0),fin)
+cone("Bluegill_Anal_Fin",(-.08,0,-.69),(.40,.07,.30),(0,math.pi/2,math.pi),fin); cone("Bluegill_Pectoral_Fin",(.28,-.32,-.05),(.32,.05,.35),(.35,.55,-.25),fin); cone("Bluegill_Pectoral_Fin_Reverse",(.28,.32,-.05),(.32,.05,.35),(-.35,-.55,.25),fin); cone("Bluegill_Tail",(-1.02,0,0),(.30,.07,.55),(0,-math.pi/2,0),fin)
 bpy.ops.object.armature_add(enter_editmode=True); arm=bpy.context.object; arm.name="FishSkeleton"; arm.data.name="FishSkeleton"; root=arm.data.edit_bones[0]; root.name="root"; root.head,root.tail=(.7,0,0),(0,0,0); spine=arm.data.edit_bones.new("spine"); spine.head,spine.tail,spine.parent=(0,0,0),(-.65,0,0),root; tail=arm.data.edit_bones.new("tail"); tail.head,tail.tail,tail.parent=(-.65,0,0),(-1.25,0,0),spine; bpy.ops.object.mode_set(mode="OBJECT")
 for o in [o for o in bpy.context.scene.objects if o.type=="MESH"]:
  world_matrix = o.matrix_world.copy()
@@ -47,6 +49,7 @@ bpy.context.scene.render.engine="BLENDER_EEVEE"; bpy.context.scene.render.resolu
 def track_camera(camera, point):
     camera.rotation_euler = (point - camera.location).to_track_quat('-Z', 'Y').to_euler()
 bpy.ops.object.camera_add(location=(3.2, -5.2, 2.2)); camera=bpy.context.object; camera.name="ReviewCamera"; track_camera(camera, Vector((0,0,0))); bpy.context.scene.camera=camera
-bpy.ops.object.light_add(type='AREA', location=(2,-3,4)); bpy.context.object.data.energy=900; bpy.context.object.data.shape='DISK'; bpy.context.object.data.size=5
+bpy.ops.object.light_add(type='AREA', location=(2,-3,4)); key_light=bpy.context.object; key_light.data.energy=900; key_light.data.shape='DISK'; key_light.data.size=5
 bpy.context.scene.render.filepath=os.path.join(OUT,"dock_bluegill_preview.png"); bpy.ops.render.render(write_still=True)
+camera.location=(3.2,5.2,2.2); track_camera(camera, Vector((0,0,0))); key_light.location=(2,3,4); bpy.context.scene.render.filepath=os.path.join(OUT,"dock_bluegill_preview_reverse.png"); bpy.ops.render.render(write_still=True)
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT,"dock_bluegill.blend")); bpy.ops.object.select_all(action="SELECT"); bpy.ops.export_scene.gltf(filepath=os.path.join(OUT,"dock_bluegill.glb"),export_format="GLB",export_animations=True,export_nla_strips=True,export_materials="EXPORT")
