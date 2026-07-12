@@ -15,6 +15,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @export var fishing_line_path: NodePath
 @export var line_overlay_path: NodePath
 @export var landing_feedback_path: NodePath
+@export var lake_surface_path: NodePath
 @export var water_center := Vector3(0.0, 0.0, 10.0)
 @export var water_size := Vector2(28.0, 16.0)
 @export var cast_distance := 8.0
@@ -35,6 +36,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @onready var fishing_line: MeshInstance3D = get_node_or_null(fishing_line_path) as MeshInstance3D
 @onready var line_overlay: Line2D = get_node_or_null(line_overlay_path) as Line2D
 @onready var landing_feedback: Node3D = get_node_or_null(landing_feedback_path) as Node3D
+@onready var lake_surface: Node = get_node_or_null(lake_surface_path)
 
 var target_point := Vector3.ZERO
 var target_valid := false
@@ -136,7 +138,17 @@ func refresh_casting_visuals(delta := 0.0) -> void:
 			_update_aiming_line()
 	_update_rod_motion()
 	_update_landing_feedback(delta)
+	_update_tackle_readability()
 	_draw_projected_line()
+
+
+func _update_tackle_readability() -> void:
+	if lake_surface == null or not lake_surface.has_method("set_tackle_readability"):
+		return
+	if hook_marker != null and hook_marker.visible and hook_marker.global_position.y < water_center.y:
+		lake_surface.call("set_tackle_readability", hook_marker.global_position, 1.25, 0.72)
+	else:
+		lake_surface.call("set_tackle_readability", Vector3.ZERO, 0.0, 0.0)
 
 
 func can_start_cast() -> bool:
