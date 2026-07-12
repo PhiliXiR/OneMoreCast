@@ -7,3 +7,6 @@ export_presets.cfg
 .DS_Store
 Thumbs.db
 assets/_scratch/
+.tools/
+*.import
+assets/fish/dock_bluegill_dock_bluegill_palette.png
