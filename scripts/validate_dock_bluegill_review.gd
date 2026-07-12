@@ -4,6 +4,8 @@ func _initialize() -> void:
 	call_deferred("_validate")
 
 func _validate() -> void:
+	if not _validate_asset("res://assets/fish/dock_bluegill.glb", "promoted runtime"):
+		return
 	var preview := load("res://assets/_scratch/issue-67-dock-bluegill-preview/dock_bluegill_review_preview.tscn") as PackedScene
 	if preview == null:
 		_fail("Dock Bluegill review preview did not load")
@@ -25,6 +27,21 @@ func _validate() -> void:
 		player.play(clip)
 	print("Dock Bluegill review preview and all named clips validated")
 	quit(0)
+
+func _validate_asset(path: String, label: String) -> bool:
+	var asset := load(path) as PackedScene
+	if asset == null:
+		_fail("Could not load %s Dock Bluegill GLB" % label)
+		return false
+	var player := _find_animation_player(asset.instantiate())
+	if player == null:
+		_fail("%s Dock Bluegill GLB has no AnimationPlayer" % label)
+		return false
+	for clip in [&"calm_swim", &"struggle_surge", &"landed_presentation"]:
+		if not player.has_animation(clip):
+			_fail("%s Dock Bluegill is missing animation: %s" % [label, clip])
+			return false
+	return true
 
 func _find_animation_player(node: Node) -> AnimationPlayer:
 	if node is AnimationPlayer:
