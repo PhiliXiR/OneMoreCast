@@ -21,8 +21,8 @@ func _run_validation() -> void:
 	if not lake_surface.has_method("request_localized_reaction"):
 		_fail("Lake surface cannot receive localized reaction requests")
 		return
-	if not lake_surface.has_method("request_cast_entry") or not lake_surface.has_method("set_waiting_lure_reaction") or not lake_surface.has_method("request_ambient_fish_sign") or not lake_surface.has_method("request_lure_fish_sign") or not lake_surface.has_method("request_bite_signal"):
-		_fail("Lake surface is missing semantic fish-sign or bite reactions")
+	if not lake_surface.has_method("request_cast_entry") or not lake_surface.has_method("set_waiting_lure_reaction") or not lake_surface.has_method("request_ambient_fish_sign") or not lake_surface.has_method("request_lure_fish_sign") or not lake_surface.has_method("request_bite_signal") or not lake_surface.has_method("set_fight_water_reaction") or not lake_surface.has_method("request_landing_reaction"):
+		_fail("Lake surface is missing semantic fishing reactions")
 		return
 
 	var observed_reaction := {}
@@ -50,13 +50,16 @@ func _run_validation() -> void:
 	lake_surface.request_ambient_fish_sign(Vector3(-2.0, 0.0, 8.0), 0.55, 0.72)
 	lake_surface.request_lure_fish_sign(Vector3(1.6, 0.0, 8.4), 0.7, 0.48)
 	lake_surface.request_bite_signal(Vector3(1.0, 0.0, 8.0), 1.0, 0.9)
+	lake_surface.set_fight_water_reaction(LakeSurface.Reaction.SURGE_WINDUP, Vector3(1.2, 0.0, 8.1), 0.56, 0.72, Vector3.RIGHT)
+	lake_surface.set_fight_water_reaction(LakeSurface.Reaction.SURGE, Vector3(1.4, 0.0, 8.2), 0.9, 1.05, Vector3.RIGHT)
+	lake_surface.request_landing_reaction(Vector3(1.5, 0.0, 8.3), 1.0, 1.28)
 	if not lake_surface.is_cast_entry_reaction_active() or not lake_surface.is_waiting_lure_reaction_active():
 		_fail("Lake surface did not retain active semantic reactions")
 		return
-	if observed_semantic_reactions.size() != 5 or observed_semantic_reactions[0][0] != LakeSurface.Reaction.CAST_ENTRY or observed_semantic_reactions[1][0] != LakeSurface.Reaction.WAITING_LURE or observed_semantic_reactions[2][0] != LakeSurface.Reaction.AMBIENT_FISH_SIGN or observed_semantic_reactions[3][0] != LakeSurface.Reaction.LURE_FISH_SIGN or observed_semantic_reactions[4][0] != LakeSurface.Reaction.BITE_SIGNAL:
-		_fail("Lake surface did not expose fish signs and bite reactions distinctly")
-	if lake_surface.get_active_reaction_label() != "bite signal":
-		_fail("Lake surface must expose the bite as the strongest active reaction")
+	if observed_semantic_reactions.size() != 8 or observed_semantic_reactions[0][0] != LakeSurface.Reaction.CAST_ENTRY or observed_semantic_reactions[1][0] != LakeSurface.Reaction.WAITING_LURE or observed_semantic_reactions[2][0] != LakeSurface.Reaction.AMBIENT_FISH_SIGN or observed_semantic_reactions[3][0] != LakeSurface.Reaction.LURE_FISH_SIGN or observed_semantic_reactions[4][0] != LakeSurface.Reaction.BITE_SIGNAL or observed_semantic_reactions[5][0] != LakeSurface.Reaction.SURGE_WINDUP or observed_semantic_reactions[6][0] != LakeSurface.Reaction.SURGE or observed_semantic_reactions[7][0] != LakeSurface.Reaction.LANDING:
+		_fail("Lake surface did not expose fight and landing reactions distinctly")
+	if lake_surface.get_active_reaction_label() != "landing splash":
+		_fail("Lake surface must expose landing as the strongest active reaction")
 		return
 
 	var mesh_instance := lake_surface.get_node_or_null("Mesh") as MeshInstance3D
@@ -66,6 +69,9 @@ func _run_validation() -> void:
 	var material := mesh_instance.get_active_material(0) as ShaderMaterial
 	if material == null or material.shader == null:
 		_fail("Lake surface must own a shader material")
+		return
+	if (material.get_shader_parameter("fight_direction") as Vector3).distance_to(Vector3.RIGHT) > 0.001:
+		_fail("Lake surface must preserve the directional fight-water request")
 		return
 	var second_lake_surface := packed_scene.instantiate()
 	root.add_child(second_lake_surface)

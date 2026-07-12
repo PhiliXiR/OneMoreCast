@@ -350,8 +350,9 @@ func apply_fight_snapshot(snapshot: Dictionary, reel_held: bool) -> void:
 	_fight_reel_held = reel_held
 	if line_overlay != null:
 		line_overlay.width = _get_fight_line_width()
-	_reel_feedback_elapsed = clampf(float(snapshot.get("landing_progress", 0.0)), 0.0, 1.0) * _reel_feedback_duration
-	_update_reel_feedback(0.0)
+		_reel_feedback_elapsed = clampf(float(snapshot.get("landing_progress", 0.0)), 0.0, 1.0) * _reel_feedback_duration
+		_update_reel_feedback(0.0)
+	_request_fight_water_reaction(float(snapshot.get("tension", 0.48)))
 
 
 func _get_fight_line_width() -> float:
@@ -366,6 +367,34 @@ func _get_fight_rod_load() -> float:
 	return [0.08, 0.13, 0.2][_fight_phase]
 
 
+func _request_fight_water_reaction(resistance: float) -> void:
+	if lake_surface == null or not lake_surface.has_method("set_fight_water_reaction"):
+		return
+	var reactions := [LakeSurface.Reaction.FIGHT_RECOVERY, LakeSurface.Reaction.SURGE_WINDUP, LakeSurface.Reaction.SURGE]
+	var strengths := [0.2, 0.42, 0.68]
+	var radii := [0.48, 0.72, 1.05]
+	var strength := clampf(strengths[_fight_phase] + resistance * 0.28, 0.0, 1.0)
+	lake_surface.call("set_fight_water_reaction", reactions[_fight_phase], _get_hooked_fish_surface_position(), strength, radii[_fight_phase], _get_cast_direction())
+
+
+func _request_landing_water_reaction() -> void:
+	if lake_surface != null and lake_surface.has_method("request_landing_reaction"):
+		lake_surface.call("request_landing_reaction", _get_hooked_fish_surface_position(), 1.0, 1.28)
+
+
+func _clear_fight_water_reaction() -> void:
+	if lake_surface != null and lake_surface.has_method("clear_fight_water_reaction"):
+		lake_surface.call("clear_fight_water_reaction")
+
+
+func _get_hooked_fish_surface_position() -> Vector3:
+	var position := get_line_endpoint()
+	if hooked_fish_marker != null and hooked_fish_marker.visible:
+		position = hooked_fish_marker.global_position
+	position.y = water_center.y + 0.03
+	return position
+
+
 func present_landed_fish() -> void:
 	_reel_feedback_active = false
 	_reel_feedback_completed = true
@@ -378,9 +407,11 @@ func present_landed_fish() -> void:
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = true
 		hooked_fish_mouth_marker.global_position = position
+	_request_landing_water_reaction()
 
 
 func end_fight_presentation() -> void:
+	_clear_fight_water_reaction()
 	_stop_reel_feedback()
 	_set_terminal_tackle_visible(false)
 
@@ -895,6 +926,7 @@ func _stop_reel_feedback() -> void:
 		hooked_fish_marker.visible = false
 	if hooked_fish_mouth_marker != null:
 		hooked_fish_mouth_marker.visible = false
+	_clear_fight_water_reaction()
 
 
 func _set_line_endpoint_position(position: Vector3) -> void:

@@ -868,6 +868,13 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	var hook_marker := casting_ui.get_node("../../HookMarker") as MeshInstance3D
 	var hooked_fish := casting_ui.get_node("../../HookedFishMarker") as MeshInstance3D
 	var hooked_fish_mouth := casting_ui.get_node("../../HookedFishMouthMarker") as MeshInstance3D
+	var lake_surface := casting_ui.get_node("../../LakeSurface") as LakeSurface
+	var fight_water_reactions: Array = []
+	lake_surface.reaction_requested.connect(
+		func(reaction: LakeSurface.Reaction, world_position: Vector3, strength: float, radius: float) -> void:
+			if reaction >= LakeSurface.Reaction.FIGHT_RECOVERY:
+				fight_water_reactions.append([reaction, world_position, strength, radius])
+	)
 	if hook_marker.global_position.y >= spatial_casting.get("water_center").y:
 		_fail("Hook should remain underwater during the interactive fight")
 		return false
@@ -954,6 +961,16 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if not saw_landed_fish:
 		_fail("Landing threshold should enter a distinct landed-fish presentation")
 		return false
+	var expected_water_reactions := [LakeSurface.Reaction.FIGHT_RECOVERY, LakeSurface.Reaction.SURGE_WINDUP, LakeSurface.Reaction.SURGE, LakeSurface.Reaction.LANDING]
+	for reaction in expected_water_reactions:
+		if not fight_water_reactions.any(func(entry: Array) -> bool: return entry[0] == reaction):
+			_fail("Playable fight should request a semantic water reaction for %s" % LakeSurface.Reaction.keys()[reaction])
+			return false
+	var landing_reaction: Array = fight_water_reactions.filter(func(entry: Array) -> bool: return entry[0] == LakeSurface.Reaction.LANDING).back()
+	if float(landing_reaction[2]) <= 0.9 or float(landing_reaction[3]) <= 1.0:
+		_fail("Landing water feedback should be stronger and broader than the fight wake")
+		return false
+	var landing_reaction_count := fight_water_reactions.filter(func(entry: Array) -> bool: return entry[0] == LakeSurface.Reaction.LANDING).size()
 	if (spatial_casting.call("get_line_endpoint") as Vector3).distance_to(endpoint_before_reeling) <= 0.2:
 		_fail("Landing progress should move the hooked-fish presentation toward the rod")
 		return false
@@ -1003,6 +1020,9 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		return false
 	if saw_landed_presentation:
 		_fail("A thrown hook should skip the landed-fish presentation")
+		return false
+	if fight_water_reactions.filter(func(entry: Array) -> bool: return entry[0] == LakeSurface.Reaction.LANDING).size() != landing_reaction_count:
+		_fail("A thrown hook must not request successful landing water feedback")
 		return false
 	if not result_label.text.contains("thrown hook") or not message_label.text.contains("Reel during recovery"):
 		_fail("Thrown-hook result should identify the cause and give a corrective hint")
@@ -1078,6 +1098,9 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	_push_action(&"set_hook", false)
 	if saw_line_break_landed_presentation:
 		_fail("A line break should skip the landed-fish presentation")
+		return false
+	if fight_water_reactions.filter(func(entry: Array) -> bool: return entry[0] == LakeSurface.Reaction.LANDING).size() != landing_reaction_count:
+		_fail("A line break must not request successful landing water feedback")
 		return false
 	if not result_label.text.contains("line break") or not message_label.text.contains("Yield sooner"):
 		_fail("Line-break result should identify the cause and give a corrective hint")
