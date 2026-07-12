@@ -103,6 +103,8 @@ func _run_validation() -> void:
 		return
 	if not _validate_spatial_casting(world.get_node("SpatialCasting")):
 		return
+	if not await _validate_waiting_fish_signs(world):
+		return
 	if not await _validate_cast_button_starts_cast(world.get_node("CastingUILayer/CastingUI")):
 		return
 
@@ -358,6 +360,7 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"trigger_bite_feedback",
 		"is_bite_feedback_active",
 		"get_bite_feedback_label",
+		"get_fish_presence_feedback_label",
 		"begin_reel_feedback",
 		"is_reel_feedback_active",
 		"apply_fight_snapshot",
@@ -400,6 +403,55 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		_fail("Valid spatial cast should expose a short waiting-for-bite duration")
 		return false
 
+	return true
+
+
+func _validate_waiting_fish_signs(world: Node) -> bool:
+	var spatial_casting := world.get_node("SpatialCasting")
+	var lake_surface := world.get_node("LakeSurface")
+	var observed_reactions: Array = []
+	lake_surface.reaction_requested.connect(
+		func(reaction: LakeSurface.Reaction, world_position: Vector3, _strength: float, _radius: float) -> void:
+			observed_reactions.append([reaction, world_position])
+	)
+	spatial_casting.call("begin_cast")
+	for frame in 11:
+		spatial_casting.call("refresh_casting_visuals", 0.08)
+		await process_frame
+	for frame in 12:
+		spatial_casting.call("refresh_casting_visuals", 0.08)
+		await process_frame
+	var saw_ambient := false
+	var saw_lure_sign := false
+	var cast_destination: Vector3 = spatial_casting.call("get_line_endpoint") as Vector3
+	for reaction_entry in observed_reactions:
+		var reaction: LakeSurface.Reaction = reaction_entry[0]
+		var sign_position: Vector3 = reaction_entry[1]
+		if reaction == LakeSurface.Reaction.AMBIENT_FISH_SIGN:
+			saw_ambient = true
+			if sign_position.distance_to(cast_destination) < 1.0:
+				_fail("Ambient fish signs must remain independent of the active lure")
+				return false
+		if reaction == LakeSurface.Reaction.LURE_FISH_SIGN:
+			saw_lure_sign = true
+			if sign_position.distance_to(cast_destination) < 0.2:
+				_fail("Lure-focused fish signs should not obscure active tackle")
+				return false
+	if not saw_ambient or not saw_lure_sign:
+		_fail("Waiting-for-bite should emit both ambient and lure-focused fish signs")
+		return false
+	if spatial_casting.call("get_fish_presence_feedback_label") as String != "lure fish sign":
+		_fail("Waiting fish-sign feedback should be observable through external state")
+		return false
+	if not (spatial_casting.call("trigger_bite_feedback") as bool):
+		_fail("A valid waiting cast should trigger bite feedback")
+		return false
+	if spatial_casting.call("get_fish_presence_feedback_label") as String != "bite signal":
+		_fail("The actionable bite must be externally distinct from fish signs")
+		return false
+	if lake_surface.call("get_active_reaction_label") as String != "bite signal":
+		_fail("The lake surface must expose the bite as distinct feedback")
+		return false
 	return true
 
 

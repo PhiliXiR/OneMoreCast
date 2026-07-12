@@ -3,6 +3,8 @@ extends SceneTree
 const WORLD_SCENE := "res://scenes/world_prototype.tscn"
 const ENTRY_CAPTURE := "res://docs/visual-review/issue-68-cast-entry.png"
 const WAITING_CAPTURE := "res://docs/visual-review/issue-68-waiting-lure.png"
+const FISH_SIGN_CAPTURE := "res://docs/visual-review/issue-69-fish-signs.png"
+const BITE_CAPTURE := "res://docs/visual-review/issue-69-bite-signal.png"
 
 
 func _initialize() -> void:
@@ -34,7 +36,12 @@ func _capture_sequence() -> void:
 		spatial_casting.call("refresh_casting_visuals", 0.08)
 		await process_frame
 	_capture(WAITING_CAPTURE)
-	print("Cast-entry and waiting-lure visual review captures saved")
+	_capture(FISH_SIGN_CAPTURE)
+	spatial_casting.call("trigger_bite_feedback")
+	spatial_casting.call("refresh_casting_visuals", 0.12)
+	await process_frame
+	_capture(BITE_CAPTURE)
+	print("Cast-entry, fish-sign, and bite visual review captures saved")
 	quit(0)
 
 

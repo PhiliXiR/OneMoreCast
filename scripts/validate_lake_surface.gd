@@ -21,8 +21,8 @@ func _run_validation() -> void:
 	if not lake_surface.has_method("request_localized_reaction"):
 		_fail("Lake surface cannot receive localized reaction requests")
 		return
-	if not lake_surface.has_method("request_cast_entry") or not lake_surface.has_method("set_waiting_lure_reaction"):
-		_fail("Lake surface is missing semantic cast-entry or waiting-lure reactions")
+	if not lake_surface.has_method("request_cast_entry") or not lake_surface.has_method("set_waiting_lure_reaction") or not lake_surface.has_method("request_ambient_fish_sign") or not lake_surface.has_method("request_lure_fish_sign") or not lake_surface.has_method("request_bite_signal"):
+		_fail("Lake surface is missing semantic fish-sign or bite reactions")
 		return
 
 	var observed_reaction := {}
@@ -47,11 +47,16 @@ func _run_validation() -> void:
 	)
 	lake_surface.request_cast_entry(Vector3(1.0, 0.0, 8.0), 0.8, 1.2)
 	lake_surface.set_waiting_lure_reaction(Vector3(1.0, 0.0, 8.0), true)
+	lake_surface.request_ambient_fish_sign(Vector3(-2.0, 0.0, 8.0), 0.55, 0.72)
+	lake_surface.request_lure_fish_sign(Vector3(1.6, 0.0, 8.4), 0.7, 0.48)
+	lake_surface.request_bite_signal(Vector3(1.0, 0.0, 8.0), 1.0, 0.9)
 	if not lake_surface.is_cast_entry_reaction_active() or not lake_surface.is_waiting_lure_reaction_active():
 		_fail("Lake surface did not retain active semantic reactions")
 		return
-	if observed_semantic_reactions.size() != 2 or observed_semantic_reactions[0][0] != LakeSurface.Reaction.CAST_ENTRY or observed_semantic_reactions[1][0] != LakeSurface.Reaction.WAITING_LURE:
-		_fail("Lake surface did not expose cast-entry and waiting-lure reactions distinctly")
+	if observed_semantic_reactions.size() != 5 or observed_semantic_reactions[0][0] != LakeSurface.Reaction.CAST_ENTRY or observed_semantic_reactions[1][0] != LakeSurface.Reaction.WAITING_LURE or observed_semantic_reactions[2][0] != LakeSurface.Reaction.AMBIENT_FISH_SIGN or observed_semantic_reactions[3][0] != LakeSurface.Reaction.LURE_FISH_SIGN or observed_semantic_reactions[4][0] != LakeSurface.Reaction.BITE_SIGNAL:
+		_fail("Lake surface did not expose fish signs and bite reactions distinctly")
+	if lake_surface.get_active_reaction_label() != "bite signal":
+		_fail("Lake surface must expose the bite as the strongest active reaction")
 		return
 
 	var mesh_instance := lake_surface.get_node_or_null("Mesh") as MeshInstance3D

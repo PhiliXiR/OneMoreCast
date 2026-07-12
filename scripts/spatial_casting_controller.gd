@@ -73,6 +73,11 @@ var _bite_feedback_active := false
 var _bite_feedback_elapsed := 0.0
 var _bite_feedback_duration := 0.85
 var _bite_feedback_label := "none"
+var _ambient_presence_elapsed := 0.0
+var _next_ambient_presence_at := 0.38
+var _waiting_sign_elapsed := 0.0
+var _next_lure_sign_at := 0.18
+var _fish_presence_feedback_label := "none"
 var _reel_feedback_active := false
 var _reel_feedback_elapsed := 0.0
 var _reel_feedback_duration := 1.2
@@ -140,6 +145,7 @@ func refresh_casting_visuals(delta := 0.0) -> void:
 	_update_landing_feedback(delta)
 	_update_tackle_readability()
 	_update_waiting_lure_reaction()
+	_update_fish_signs(delta)
 	_draw_projected_line()
 
 
@@ -157,6 +163,51 @@ func _update_waiting_lure_reaction() -> void:
 		return
 	var waiting := did_last_cast_land_in_water() and is_cast_landed() and not _bite_feedback_active and not _reel_feedback_active
 	lake_surface.call("set_waiting_lure_reaction", _cast_destination, waiting)
+
+
+func _update_fish_signs(delta: float) -> void:
+	_ambient_presence_elapsed += delta
+	if lake_surface != null and lake_surface.has_method("request_ambient_fish_sign") and _ambient_presence_elapsed >= _next_ambient_presence_at:
+		lake_surface.call("request_ambient_fish_sign", _get_ambient_fish_sign_position(), 0.55, 0.72)
+		_next_ambient_presence_at += 2.4
+		_fish_presence_feedback_label = "ambient fish sign"
+	var waiting := did_last_cast_land_in_water() and is_cast_landed() and not _bite_feedback_active and not _reel_feedback_active
+	if not waiting:
+		_waiting_sign_elapsed = 0.0
+		_next_lure_sign_at = 0.18
+		if not _bite_feedback_active:
+			_fish_presence_feedback_label = "none"
+		return
+	_waiting_sign_elapsed += delta
+	if lake_surface == null:
+		return
+	if _waiting_sign_elapsed >= _next_lure_sign_at and lake_surface.has_method("request_lure_fish_sign"):
+		lake_surface.call("request_lure_fish_sign", _get_lure_fish_sign_position(), 0.7, 0.48)
+		_next_lure_sign_at += 0.62
+		_fish_presence_feedback_label = "lure fish sign"
+
+
+func _get_ambient_fish_sign_position() -> Vector3:
+	var cycle := int(_next_ambient_presence_at * 10.0) % 2
+	var offset := Vector3(-2.35, 0.0, 1.2) if cycle == 0 else Vector3(2.15, 0.0, -1.35)
+	var origin := _cast_destination if did_last_cast_land_in_water() else water_center
+	return _clamp_to_safe_water(origin + offset)
+
+
+func _get_lure_fish_sign_position() -> Vector3:
+	var cycle := int(_next_lure_sign_at * 10.0) % 2
+	var offset := Vector3(0.7, 0.0, 0.35) if cycle == 0 else Vector3(-0.58, 0.0, -0.48)
+	return _clamp_to_safe_water(_cast_destination + offset)
+
+
+func _clamp_to_safe_water(position: Vector3) -> Vector3:
+	var half_size := water_size * 0.5
+	var edge_margin := 0.75
+	return Vector3(
+		clampf(position.x, water_center.x - half_size.x + edge_margin, water_center.x + half_size.x - edge_margin),
+		water_center.y + 0.08,
+		clampf(position.z, water_center.z - half_size.y + edge_margin, water_center.z + half_size.y - edge_margin)
+	)
 
 
 func can_start_cast() -> bool:
@@ -190,6 +241,7 @@ func begin_cast() -> void:
 	_sync_terminal_tackle(_cast_start)
 	_hide_landing_feedback(true)
 	_stop_bite_feedback(true)
+	_fish_presence_feedback_label = "none"
 	_stop_reel_feedback()
 	_reel_feedback_completed = false
 	_update_cast_line(0.0)
@@ -244,6 +296,9 @@ func trigger_bite_feedback() -> bool:
 	_bite_feedback_active = true
 	_bite_feedback_elapsed = 0.0
 	_bite_feedback_label = "bite twitch"
+	_fish_presence_feedback_label = "bite signal"
+	if lake_surface != null and lake_surface.has_method("request_bite_signal"):
+		lake_surface.call("request_bite_signal", _cast_destination, 1.0, 0.9)
 	return true
 
 
@@ -253,6 +308,10 @@ func is_bite_feedback_active() -> bool:
 
 func get_bite_feedback_label() -> String:
 	return _bite_feedback_label
+
+
+func get_fish_presence_feedback_label() -> String:
+	return _fish_presence_feedback_label
 
 
 func begin_reel_feedback(duration := 1.2) -> bool:
