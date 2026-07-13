@@ -27,6 +27,33 @@ text = "One More Cast"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 28
 
+[node name="DrawerToggleButton" type="Button" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 176.0
+offset_bottom = 38.0
+text = "Journal / Community"
+
+[node name="JournalDrawerTab" type="Button" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 92.0
+offset_bottom = 34.0
+text = "Journal"
+
+[node name="CommunityDrawerTab" type="Button" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 108.0
+offset_bottom = 34.0
+text = "Community"
+
 [node name="SurgeCue" type="AudioStreamPlayer" parent="."]
 volume_db = -12.0
 
@@ -185,44 +212,48 @@ offset_bottom = 322.0
 grow_horizontal = 0
 mouse_filter = 2
 
-[node name="Layout" type="VBoxContainer" parent="LogPanel"]
+[node name="Scroll" type="ScrollContainer" parent="LogPanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Layout" type="VBoxContainer" parent="LogPanel/Scroll"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 10
 
-[node name="InventoryLabel" type="Label" parent="LogPanel/Layout"]
+[node name="InventoryLabel" type="Label" parent="LogPanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 2
 text = "Inventory: empty"
 autowrap_mode = 3
 
-[node name="JournalLabel" type="Label" parent="LogPanel/Layout"]
+[node name="JournalLabel" type="Label" parent="LogPanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 2
 text = "Journal:\n- No casts yet."
 autowrap_mode = 3
 
-[node name="InspectObservationButton" type="Button" parent="LogPanel/Layout"]
+[node name="InspectObservationButton" type="Button" parent="LogPanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 0
 text = "Inspect latest observation"
 
-[node name="PresentationButton" type="Button" parent="LogPanel/Layout"]
+[node name="PresentationButton" type="Button" parent="LogPanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 0
 text = "Change presentation"
 
-[node name="FarBankButton" type="Button" parent="LogPanel/Layout"]
+[node name="FarBankButton" type="Button" parent="LogPanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 0
 text = "Follow far-bank field note"
 
-[node name="AccessibilityMeterButton" type="Button" parent="LogPanel/Layout"]
+[node name="AccessibilityMeterButton" type="Button" parent="LogPanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 0
 text = "Accessibility: tension meter off"
 
-[node name="PlaytestReadoutButton" type="Button" parent="LogPanel/Layout"]
+[node name="PlaytestReadoutButton" type="Button" parent="LogPanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 0
 text = "Playtest readout off"
@@ -237,28 +268,32 @@ offset_bottom = 382.0
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Layout" type="VBoxContainer" parent="HomePanel"]
+[node name="Scroll" type="ScrollContainer" parent="HomePanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Layout" type="VBoxContainer" parent="HomePanel/Scroll"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 10
 
-[node name="CommunityLabel" type="Label" parent="HomePanel/Layout"]
+[node name="CommunityLabel" type="Label" parent="HomePanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 2
 text = "Home community"
 autowrap_mode = 3
 
-[node name="ReturnHomeButton" type="Button" parent="HomePanel/Layout"]
+[node name="ReturnHomeButton" type="Button" parent="HomePanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 0
 text = "Share latest observation with Eli"
 
-[node name="RetainObservationButton" type="Button" parent="HomePanel/Layout"]
+[node name="RetainObservationButton" type="Button" parent="HomePanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 0
 text = "Retain latest observation in journal"
 
-[node name="HelpMaraButton" type="Button" parent="HomePanel/Layout"]
+[node name="HelpMaraButton" type="Button" parent="HomePanel/Scroll/Layout"]
 layout_mode = 2
 mouse_filter = 0
 text = "Use latest catch to help Mara"

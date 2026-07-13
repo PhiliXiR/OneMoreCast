@@ -294,7 +294,7 @@ func _validate_casting_hud(casting_ui: Node) -> bool:
 		"ActionPanel/Layout/SpatialLabel",
 		"ActionPanel/Layout/QualityLabel",
 		"LogPanel",
-		"LogPanel/Layout",
+		"LogPanel/Scroll/Layout",
 	]:
 		var control := casting_ui.get_node_or_null(path) as Control
 		if control == null:
@@ -804,7 +804,7 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	var state_label := casting_ui.get_node("ActionPanel/Layout/StateLabel") as Label
 	var message_label := casting_ui.get_node("ActionPanel/Layout/MessageLabel") as Label
 	var result_label := casting_ui.get_node("ActionPanel/Layout/ResultLabel") as Label
-	var inventory_label := casting_ui.get_node("LogPanel/Layout/InventoryLabel") as Label
+	var inventory_label := casting_ui.get_node("LogPanel/Scroll/Layout/InventoryLabel") as Label
 	var rig_tag := casting_ui.get_node("ActionPanel/Layout/RigTag") as Label
 	var local_need_label := casting_ui.get_node("ActionPanel/Layout/LocalNeedLabel") as Label
 	var prompt_label := casting_ui.get_node("ActionPanel/Layout/PromptLabel") as Label
@@ -1063,7 +1063,7 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		_fail("The second outing should begin from the visibly named vegetated inlet")
 		return false
 	var inventory_before_loss := inventory_label.text
-	var journal_label := casting_ui.get_node("LogPanel/Layout/JournalLabel") as Label
+	var journal_label := casting_ui.get_node("LogPanel/Scroll/Layout/JournalLabel") as Label
 	casting_ui.call("configure_next_fight", {
 		"recovery_only": false,
 		"recovery_durations": [4.0],

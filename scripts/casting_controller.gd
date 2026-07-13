@@ -3,6 +3,10 @@ extends Control
 enum CastState { READY, CASTING, WAITING, BITE, REELING, LANDED_FISH, RESULT }
 const STATE_NAMES := ["ready", "casting", "waiting", "bite", "reeling", "landed fish", "result"]
 const BLUEGILL := {"name": "Dock Bluegill", "weight": 0.7}
+const COMPACT_HUD_MIN_WIDTH := 1500.0
+const COMPACT_HUD_MIN_HEIGHT := 860.0
+const HUD_MARGIN := 12.0
+const COMPACT_DRAWER_MAX_WIDTH := 520.0
 const FieldJournalScript = preload("res://journal/field_journal.gd")
 const HomeCommunityScript = preload("res://community/home_community.gd")
 
@@ -19,21 +23,28 @@ const HomeCommunityScript = preload("res://community/home_community.gd")
 @onready var rig_tag: Label = $ActionPanel/Layout/RigTag
 @onready var local_need_label: Label = $ActionPanel/Layout/LocalNeedLabel
 @onready var prompt_label: Label = $ActionPanel/Layout/PromptLabel
-@onready var inventory_label: Label = $LogPanel/Layout/InventoryLabel
-@onready var journal_label: Label = $LogPanel/Layout/JournalLabel
-@onready var inspect_observation_button: Button = $LogPanel/Layout/InspectObservationButton
-@onready var presentation_button: Button = $LogPanel/Layout/PresentationButton
-@onready var far_bank_button: Button = $LogPanel/Layout/FarBankButton
-@onready var community_label: Label = $HomePanel/Layout/CommunityLabel
-@onready var return_home_button: Button = $HomePanel/Layout/ReturnHomeButton
-@onready var retain_observation_button: Button = $HomePanel/Layout/RetainObservationButton
-@onready var help_mara_button: Button = $HomePanel/Layout/HelpMaraButton
+@onready var inventory_label: Label = $LogPanel/Scroll/Layout/InventoryLabel
+@onready var journal_label: Label = $LogPanel/Scroll/Layout/JournalLabel
+@onready var inspect_observation_button: Button = $LogPanel/Scroll/Layout/InspectObservationButton
+@onready var presentation_button: Button = $LogPanel/Scroll/Layout/PresentationButton
+@onready var far_bank_button: Button = $LogPanel/Scroll/Layout/FarBankButton
+@onready var community_label: Label = $HomePanel/Scroll/Layout/CommunityLabel
+@onready var return_home_button: Button = $HomePanel/Scroll/Layout/ReturnHomeButton
+@onready var retain_observation_button: Button = $HomePanel/Scroll/Layout/RetainObservationButton
+@onready var help_mara_button: Button = $HomePanel/Scroll/Layout/HelpMaraButton
 @onready var surge_cue: AudioStreamPlayer = $SurgeCue
 @onready var bite_cue: AudioStreamPlayer = $BiteCue
 @onready var danger_cue: AudioStreamPlayer = $DangerCue
 @onready var fight_readout: Label = $ActionPanel/Layout/FightReadout
-@onready var accessibility_meter_button: Button = $LogPanel/Layout/AccessibilityMeterButton
-@onready var playtest_readout_button: Button = $LogPanel/Layout/PlaytestReadoutButton
+@onready var accessibility_meter_button: Button = $LogPanel/Scroll/Layout/AccessibilityMeterButton
+@onready var playtest_readout_button: Button = $LogPanel/Scroll/Layout/PlaytestReadoutButton
+@onready var title_label: Label = $TitleLabel
+@onready var action_panel: PanelContainer = $ActionPanel
+@onready var log_panel: PanelContainer = $LogPanel
+@onready var home_panel: PanelContainer = $HomePanel
+@onready var drawer_toggle_button: Button = $DrawerToggleButton
+@onready var journal_drawer_tab: Button = $JournalDrawerTab
+@onready var community_drawer_tab: Button = $CommunityDrawerTab
 
 var state := CastState.READY
 var cast_count := 0
@@ -59,6 +70,8 @@ var accessibility_tension_meter_enabled := false
 var playtest_readout_enabled := false
 var _fight_tutorial_complete := false
 var _last_danger_kind := ""
+var _drawer_open := false
+var _drawer_section := "journal"
 
 
 func _ready() -> void:
@@ -74,6 +87,10 @@ func _ready() -> void:
 	help_mara_button.pressed.connect(_on_help_mara_pressed)
 	accessibility_meter_button.pressed.connect(func() -> void: set_accessibility_tension_meter_enabled(not accessibility_tension_meter_enabled))
 	playtest_readout_button.pressed.connect(func() -> void: set_playtest_readout_enabled(not playtest_readout_enabled))
+	drawer_toggle_button.pressed.connect(_on_drawer_toggle_pressed)
+	journal_drawer_tab.pressed.connect(func() -> void: _show_drawer_section("journal"))
+	community_drawer_tab.pressed.connect(func() -> void: _show_drawer_section("community"))
+	resized.connect(_update_responsive_layout)
 	playtest_readout_button.visible = OS.is_debug_build()
 	cast_button.button_down.connect(func() -> void: set_reel_held(true))
 	cast_button.button_up.connect(func() -> void: set_reel_held(false))
@@ -91,6 +108,7 @@ func _ready() -> void:
 	danger_cue.stream = danger_stream
 	_update_view(home_community.begin_first_outing())
 	_update_home_community_view()
+	call_deferred("_update_responsive_layout")
 
 
 func _process(delta: float) -> void:
@@ -153,6 +171,69 @@ func set_playtest_readout_enabled(enabled: bool) -> void:
 	playtest_readout_enabled = enabled
 	playtest_readout_button.text = "Playtest readout %s" % ("on" if enabled else "off")
 	_update_fight_optional_readouts()
+
+
+func _on_drawer_toggle_pressed() -> void:
+	_drawer_open = not _drawer_open
+	_update_responsive_layout()
+
+
+func _show_drawer_section(section: String) -> void:
+	_drawer_section = section
+	_drawer_open = true
+	_update_responsive_layout()
+
+
+func _update_responsive_layout() -> void:
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
+	var compact_hud := size.x < COMPACT_HUD_MIN_WIDTH or size.y < COMPACT_HUD_MIN_HEIGHT
+	if not compact_hud:
+		_drawer_open = false
+		title_label.visible = true
+		drawer_toggle_button.visible = false
+		journal_drawer_tab.visible = false
+		community_drawer_tab.visible = false
+		log_panel.visible = true
+		home_panel.visible = true
+		_place_panel(action_panel, Rect2(size.x - 360.0, size.y - 218.0, 336.0, 190.0))
+		_place_panel(log_panel, Rect2(size.x - 344.0, 72.0, 328.0, 250.0))
+		_place_panel(home_panel, Rect2(16.0, 72.0, 404.0, 310.0))
+		return
+
+	title_label.visible = false
+	var margin := HUD_MARGIN
+	var drawer_width := minf(size.x - margin * 2.0, COMPACT_DRAWER_MAX_WIDTH)
+	var action_height := clampf(size.y * 0.26, 190.0, 218.0)
+	var action_rect := Rect2(margin, size.y - action_height - margin, size.x - margin * 2.0, action_height)
+	_place_panel(action_panel, action_rect)
+	drawer_toggle_button.visible = true
+	drawer_toggle_button.position = Vector2(size.x - 188.0, 12.0)
+	drawer_toggle_button.size = Vector2(176.0, 38.0)
+	drawer_toggle_button.text = "Close drawer" if _drawer_open else "Journal / Community"
+	var content_rect := Rect2((size.x - drawer_width) * 0.5, 60.0, drawer_width, maxf(0.0, action_rect.position.y - 70.0))
+	journal_drawer_tab.visible = _drawer_open
+	community_drawer_tab.visible = _drawer_open
+	journal_drawer_tab.position = content_rect.position
+	journal_drawer_tab.size = Vector2(92.0, 34.0)
+	community_drawer_tab.position = content_rect.position + Vector2(100.0, 0.0)
+	community_drawer_tab.size = Vector2(108.0, 34.0)
+	journal_drawer_tab.disabled = _drawer_section == "journal"
+	community_drawer_tab.disabled = _drawer_section == "community"
+	content_rect.position.y += 42.0
+	content_rect.size.y = maxf(0.0, content_rect.size.y - 42.0)
+	log_panel.visible = _drawer_open and _drawer_section == "journal"
+	home_panel.visible = _drawer_open and _drawer_section == "community"
+	if log_panel.visible:
+		_place_panel(log_panel, content_rect)
+	if home_panel.visible:
+		_place_panel(home_panel, content_rect)
+
+
+func _place_panel(panel: Control, rect: Rect2) -> void:
+	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	panel.position = rect.position
+	panel.size = rect.size
 
 
 func set_reel_held(held: bool) -> void:
