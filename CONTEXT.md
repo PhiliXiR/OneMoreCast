@@ -3,6 +3,72 @@
 One More Cast is a fishing game built around believable fishing concepts and
 approachable player decisions.
 
+## Product Shape
+
+**Compact foundation**:
+The first complete, release-sized game area: a dense, self-contained fishing
+RPG experience that is satisfying on its own and establishes systems and
+content patterns that can later extend into a full watershed.
+_Avoid_: Demo, throwaway prototype, whole game
+
+**Local need**:
+A human-scale problem or responsibility rooted in the home community that gives
+ordinary fishing outings emotional and practical meaning.
+_Avoid_: Main quest, epic stakes, generic objective
+
+**Watershed mystery**:
+An exceptional fish or natural phenomenon whose incomplete, contradictory local
+accounts provide the compact foundation's long-term direction.
+_Avoid_: Boss fish, legendary loot, final objective
+
+**Home water**:
+The continuous, familiar lake surrounding the community and forming the compact
+foundation's primary place of fishing, travel, and return.
+_Avoid_: Map, level, fishing stage
+
+**Micro-habitat**:
+A small, authored section of the home water with distinct visible conditions,
+fish presence, and fishing implications.
+_Avoid_: Biome, zone, spot
+
+**Fishing conditions**:
+The small, readable set of circumstances that shapes fish presence for an
+outing: micro-habitat, time of day, and rig or presentation.
+_Avoid_: Spawn table, hidden modifiers, catch matrix
+
+**Field journal**:
+A context-rich record of fishing evidence and personal memories that helps the
+player form and test hypotheses about the home water.
+_Avoid_: Collection screen, checklist, bestiary
+
+**Observation**:
+A recorded piece of evidence from an outing, including a catch, fish sign,
+bite, loss, or condition.
+_Avoid_: Stat, unlock, progress point
+
+**Expedition texture**:
+Light, legible resistance around an outing—travel, passing time, and temporary
+route or weather inconvenience—that makes return and shelter meaningful without
+becoming a survival-management system.
+_Avoid_: Survival loop, grind, chore system
+
+**Home community**:
+The small set of recurring people at the home water whose needs, practical
+knowledge, and local accounts make fishing socially meaningful.
+_Avoid_: Quest hub, NPC roster, task board
+
+**Knowledge-and-access progression**:
+Advancement through learned fishing conditions, new presentations, trusted
+relationships, and reachable micro-habitats rather than escalating equipment
+statistics.
+_Avoid_: Gear score, power curve, tier grind
+
+**First complete loop**:
+The first end-to-end player proof: receive a local need, choose a micro-habitat,
+fish and learn from the result, record an observation, return home, and receive
+a clue about the watershed mystery.
+_Avoid_: Tutorial, technical demo, vertical-slice checklist
+
 ## Fishing
 
 **Reeling**:
