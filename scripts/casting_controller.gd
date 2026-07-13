@@ -30,6 +30,10 @@ const HomeCommunityScript = preload("res://community/home_community.gd")
 @onready var help_mara_button: Button = $HomePanel/Layout/HelpMaraButton
 @onready var surge_cue: AudioStreamPlayer = $SurgeCue
 @onready var bite_cue: AudioStreamPlayer = $BiteCue
+@onready var danger_cue: AudioStreamPlayer = $DangerCue
+@onready var fight_readout: Label = $ActionPanel/Layout/FightReadout
+@onready var accessibility_meter_button: Button = $LogPanel/Layout/AccessibilityMeterButton
+@onready var playtest_readout_button: Button = $LogPanel/Layout/PlaytestReadoutButton
 
 var state := CastState.READY
 var cast_count := 0
@@ -51,6 +55,10 @@ var _tutorial_slack_danger_shown := false
 var _tutorial_high_tension_danger_shown := false
 var _last_fight_phase := -1
 var _observed_evidence_kinds := {}
+var accessibility_tension_meter_enabled := false
+var playtest_readout_enabled := false
+var _fight_tutorial_complete := false
+var _last_danger_kind := ""
 
 
 func _ready() -> void:
@@ -64,6 +72,8 @@ func _ready() -> void:
 	return_home_button.pressed.connect(_on_return_home_pressed)
 	retain_observation_button.pressed.connect(_on_retain_observation_pressed)
 	help_mara_button.pressed.connect(_on_help_mara_pressed)
+	accessibility_meter_button.pressed.connect(func() -> void: set_accessibility_tension_meter_enabled(not accessibility_tension_meter_enabled))
+	playtest_readout_button.pressed.connect(func() -> void: set_playtest_readout_enabled(not playtest_readout_enabled))
 	cast_button.button_down.connect(func() -> void: set_reel_held(true))
 	cast_button.button_up.connect(func() -> void: set_reel_held(false))
 	var cue_stream := AudioStreamGenerator.new()
@@ -74,6 +84,10 @@ func _ready() -> void:
 	bite_stream.mix_rate = 22050.0
 	bite_stream.buffer_length = 0.12
 	bite_cue.stream = bite_stream
+	var danger_stream := AudioStreamGenerator.new()
+	danger_stream.mix_rate = 22050.0
+	danger_stream.buffer_length = 0.12
+	danger_cue.stream = danger_stream
 	_update_view(home_community.begin_first_outing())
 	_update_home_community_view()
 
@@ -97,6 +111,21 @@ func configure_next_fight(configuration: Dictionary) -> void:
 	next_fight_configuration = configuration.duplicate(true)
 
 
+func start_playtest_fixture(fixture: String) -> void:
+	# Developer-only repeatable states used by validation and manual playtest sessions.
+	var fixtures := {
+		"recovery": {"recovery_only": true, "recovery_reel_rate": 0.12},
+		"surge": {"recovery_durations": [0.01], "windup_durations": [0.01], "surge_durations": [3.0], "danger_window": 5.0},
+		"line break": {"recovery_durations": [0.01], "windup_durations": [0.01], "surge_durations": [3.0], "danger_window": 0.35},
+		"thrown hook": {"recovery_durations": [3.0], "danger_window": 0.35},
+		"landed fish": {"recovery_only": true, "recovery_reel_rate": 2.0},
+	}
+	if not fixtures.has(fixture):
+		push_warning("Unknown fight playtest fixture: %s" % fixture)
+		return
+	configure_next_fight(fixtures[fixture])
+
+
 func get_fight_snapshot() -> Dictionary:
 	return fight_snapshot.duplicate(true)
 
@@ -107,6 +136,22 @@ func is_surge_cue_playing() -> bool:
 
 func is_bite_cue_playing() -> bool:
 	return bite_cue.playing
+
+
+func is_danger_cue_playing() -> bool:
+	return danger_cue.playing
+
+
+func set_accessibility_tension_meter_enabled(enabled: bool) -> void:
+	accessibility_tension_meter_enabled = enabled
+	accessibility_meter_button.text = "Accessibility: tension meter %s" % ("on" if enabled else "off")
+	_update_fight_optional_readouts()
+
+
+func set_playtest_readout_enabled(enabled: bool) -> void:
+	playtest_readout_enabled = enabled
+	playtest_readout_button.text = "Playtest readout %s" % ("on" if enabled else "off")
+	_update_fight_optional_readouts()
 
 
 func set_reel_held(held: bool) -> void:
@@ -180,15 +225,14 @@ func _begin_fight() -> void:
 	_last_fight_phase = -1
 	state = CastState.REELING
 	cast_button.disabled = false
-	cast_button.text = "Hold to Reel"
-	tension_gauge.visible = true
-	tension_regions.visible = true
+	cast_button.text = "Reel"
 	_set_pre_fight_hud_visible(false)
-	if not _tutorial_hold_shown:
+	_update_fight_optional_readouts()
+	if not _fight_tutorial_complete:
 		_tutorial_hold_shown = true
-		tutorial_label.text = "Hold to reel while the fish recovers."
+		tutorial_label.text = "Recovery: reel to bring the hooked fish closer. Yield when it surges."
 	_provider_call("begin_reel_feedback", [999.0])
-	_update_view("%s is hooked. Reel during recovery; yield when it surges." % String(_provider_fish()["name"]))
+	_update_view("A fish is hooked.")
 
 
 func _vary_durations(base_durations: Array, variation: float) -> Array[float]:
@@ -205,23 +249,37 @@ func _present_fight() -> void:
 	if phase == FishFightModel.Phase.SURGE_WINDUP and _last_fight_phase != phase:
 		_play_surge_cue()
 	_last_fight_phase = phase
-	message_label.text = "%s — %s" % [phase_name.capitalize(), "reeling" if reel_held else "yielding"]
-	if phase == FishFightModel.Phase.SURGE_WINDUP and not _tutorial_release_shown:
+	message_label.text = ""
+	if phase == FishFightModel.Phase.RECOVERY:
+		prompt_label.text = "REEL  •  RECOVERY"
+		cast_button.text = "Reel"
+	elif phase == FishFightModel.Phase.SURGE_WINDUP:
+		prompt_label.text = "YIELD  •  SURGE COMING"
+		cast_button.text = "Yield"
+	else:
+		prompt_label.text = "YIELD  •  SURGE"
+		cast_button.text = "Yield"
+	if phase == FishFightModel.Phase.SURGE_WINDUP and not _tutorial_release_shown and not _fight_tutorial_complete:
 		_tutorial_release_shown = true
 		tutorial_label.text = "Surge coming — release to yield!"
 	var high := float(fight_snapshot.get("high_tension_danger", 0.0))
 	var slack := float(fight_snapshot.get("slack_danger", 0.0))
 	var high_failure_enabled := bool(fight_snapshot.get("high_tension_failure_enabled", false))
 	var slack_failure_enabled := bool(fight_snapshot.get("slack_failure_enabled", false))
-	if high_failure_enabled and high > 0.0 and not _tutorial_high_tension_danger_shown:
-		_tutorial_high_tension_danger_shown = true
-		tutorial_label.text = "Yield now — the line may break!"
-	elif slack_failure_enabled and slack > 0.0 and not _tutorial_slack_danger_shown:
-		_tutorial_slack_danger_shown = true
-		tutorial_label.text = "Reel now — the fish may throw the hook!"
-	var pulse := 0.55 + 0.45 * absf(sin(Time.get_ticks_msec() * 0.012))
-	tension_regions.get_node("Slack").modulate = Color(pulse, pulse, 1.0) if slack_failure_enabled and slack > 0.0 else Color.WHITE
-	tension_regions.get_node("Excessive").modulate = Color(1.0, pulse, pulse) if high_failure_enabled and high > 0.0 else Color.WHITE
+	var danger_kind := ""
+	if high_failure_enabled and high > 0.0:
+		danger_kind = "high tension"
+		prompt_label.text = "YIELD NOW  ⚠  LINE STRAIN"
+		if not _fight_tutorial_complete: tutorial_label.text = "Too much line tension — yield before the line breaks."
+	elif slack_failure_enabled and slack > 0.0:
+		danger_kind = "slack"
+		prompt_label.text = "REEL NOW  ↯  LINE SLACK"
+		if not _fight_tutorial_complete: tutorial_label.text = "Line slack — reel before the fish throws the hook."
+	if not danger_kind.is_empty() and danger_kind != _last_danger_kind:
+		_play_danger_cue(danger_kind)
+	_last_danger_kind = danger_kind
+	if danger_kind.is_empty(): _last_danger_kind = ""
+	_update_fight_optional_readouts()
 	_provider_call("apply_fight_snapshot", [fight_snapshot, reel_held])
 
 
@@ -229,6 +287,7 @@ func _finish_landed_fish() -> void:
 	state = CastState.LANDED_FISH
 	cast_button.disabled = true
 	_hide_fight_hud()
+	_fight_tutorial_complete = true
 	_provider_call("present_landed_fish")
 	var fish := _provider_fish()
 	var name: String = fish["name"]
@@ -290,6 +349,8 @@ func _try_set_hook() -> void:
 func _hide_fight_hud() -> void:
 	tension_gauge.visible = false
 	tension_regions.visible = false
+	fight_readout.visible = false
+	prompt_label.visible = false
 
 
 func _play_surge_cue() -> void:
@@ -314,6 +375,32 @@ func _play_bite_cue() -> void:
 		var sample := sin(float(index) * TAU * 920.0 / 22050.0) * envelope * 0.18
 		frames.append(Vector2(sample, sample))
 	playback.push_buffer(frames)
+
+
+func _play_danger_cue(kind: String) -> void:
+	danger_cue.play()
+	var playback := danger_cue.get_stream_playback() as AudioStreamGeneratorPlayback
+	if playback == null: return
+	var frequency := 330.0 if kind == "slack" else 150.0
+	var frames := PackedVector2Array()
+	for index in 1764:
+		var envelope := 1.0 - float(index) / 1764.0
+		var sample := sin(float(index) * TAU * frequency / 22050.0) * envelope * 0.2
+		frames.append(Vector2(sample, sample))
+	playback.push_buffer(frames)
+
+
+func _update_fight_optional_readouts() -> void:
+	var fighting := state == CastState.REELING and not fight_snapshot.is_empty()
+	tension_gauge.visible = fighting and accessibility_tension_meter_enabled
+	tension_regions.visible = fighting and accessibility_tension_meter_enabled
+	fight_readout.visible = fighting and playtest_readout_enabled
+	if fighting and playtest_readout_enabled:
+		fight_readout.text = "PLAYTEST  tension %.2f | high %.2f | slack %.2f | landing %.2f | %s | %s" % [
+			float(fight_snapshot.get("tension", 0.0)), float(fight_snapshot.get("high_tension_danger", 0.0)),
+			float(fight_snapshot.get("slack_danger", 0.0)), float(fight_snapshot.get("landing_progress", 0.0)),
+			String(fight_snapshot.get("phase_name", "")), String(fight_snapshot.get("outcome_name", "")),
+		]
 
 
 func _on_fishing_evidence_observed(kind: String, detail: String) -> void:
@@ -443,9 +530,10 @@ func _set_pre_fight_hud_visible(visible: bool) -> void:
 		return
 	state_label.visible = true
 	spatial_label.visible = false
-	message_label.visible = true
+	message_label.visible = state != CastState.REELING
 	result_label.visible = false
 	quality_label.visible = false
+	prompt_label.visible = state == CastState.REELING
 
 
 func _inventory_text() -> String:

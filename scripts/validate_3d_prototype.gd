@@ -887,28 +887,20 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if not saw_reeling:
 		_fail("Hook-set input should enter a reeling state before the catch result")
 		return false
-	if cast_button.text != "Hold to Reel":
-		_fail("Fish fight should label the contextual action Hold to Reel")
+	var fight_prompt := casting_ui.get_node("ActionPanel/Layout/PromptLabel") as Label
+	if not fight_prompt.text.contains("REEL"):
+		_fail("Fish fight should begin with a contextual Reel prompt")
 		return false
 	var tension_gauge := casting_ui.get_node("ActionPanel/Layout/TensionGauge") as ProgressBar
-	if not tension_gauge.visible:
-		_fail("Line-tension gauge should be visible during the fish fight")
+	if tension_gauge.visible:
+		_fail("Default fight HUD must not expose a permanent tension gauge")
 		return false
 	var tension_regions := casting_ui.get_node("ActionPanel/Layout/TensionRegions") as HBoxContainer
-	if not tension_regions.visible:
-		_fail("Line-tension regions should be visible during the fish fight")
+	if tension_regions.visible:
+		_fail("Default fight HUD must not expose tension regions")
 		return false
-	if tension_regions.get_node("Slack").text != "SLACK":
-		_fail("Line-tension gauge should distinguish the slack region")
-		return false
-	if not tension_regions.get_node("Safe").text.contains("SAFE TENSION"):
-		_fail("Line-tension gauge should distinguish safe tension")
-		return false
-	if tension_regions.get_node("Excessive").text != "EXCESSIVE":
-		_fail("Line-tension gauge should distinguish high tension")
-		return false
-	if not tutorial_label.text.contains("Hold to reel"):
-		_fail("The first fight should show the hold-to-reel instruction")
+	if not tutorial_label.text.contains("Recovery: reel"):
+		_fail("The first fight should teach recovery and reeling in context")
 		return false
 	var spatial_casting := casting_ui.get_node("../../SpatialCasting")
 	var endpoint_before_reeling := spatial_casting.call("get_line_endpoint") as Vector3
@@ -1086,17 +1078,15 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		if state_label.text == "State: bite": break
 	_push_action(&"set_hook", true)
 	_push_action(&"set_hook", false)
-	var saw_slack_warning := false
-	var saw_slack_pulse := false
+	var saw_slack_prompt := false
 	var saw_landed_presentation := false
 	for frame in 120:
 		await create_timer(0.05).timeout
 		if state_label.text == "State: landed fish": saw_landed_presentation = true
-		if tutorial_label.text.contains("throw the hook"): saw_slack_warning = true
-		if tension_regions.get_node("Slack").modulate != Color.WHITE: saw_slack_pulse = true
+		if fight_prompt.text.contains("LINE SLACK"): saw_slack_prompt = true
 		if state_label.text == "State: result": break
-	if not saw_slack_warning or not saw_slack_pulse:
-		_fail("Slack danger should show a cause-specific warning and pulse the slack gauge region")
+	if not saw_slack_prompt:
+		_fail("Slack danger should show a cause-specific corrective prompt")
 		return false
 	if saw_landed_presentation:
 		_fail("A thrown hook should skip the landed-fish presentation")
@@ -1142,22 +1132,19 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		if state_label.text == "State: reeling": break
 	_push_action(&"set_hook", true)
 	var saw_high_tension_danger := false
-	var saw_high_tension_warning := false
-	var saw_high_tension_pulse := false
+	var saw_high_tension_prompt := false
 	var saw_line_break_landed_presentation := false
 	for frame in 60:
 		await create_timer(0.05).timeout
 		fight_snapshot = casting_ui.call("get_fight_snapshot") as Dictionary
 		if float(fight_snapshot.get("high_tension_danger", 0.0)) > 0.0:
 			saw_high_tension_danger = true
-		if tutorial_label.text.contains("line may break"):
-			saw_high_tension_warning = true
-		if tension_regions.get_node("Excessive").modulate != Color.WHITE:
-			saw_high_tension_pulse = true
-		if saw_high_tension_danger and saw_high_tension_warning and saw_high_tension_pulse: break
+		if fight_prompt.text.contains("LINE STRAIN"):
+			saw_high_tension_prompt = true
+		if saw_high_tension_danger and saw_high_tension_prompt: break
 	_push_action(&"set_hook", false)
-	if not saw_high_tension_danger or not saw_high_tension_warning or not saw_high_tension_pulse:
-		_fail("Line-break danger should accumulate visibly with a cause-specific warning and excessive-region pulse")
+	if not saw_high_tension_danger or not saw_high_tension_prompt:
+		_fail("Line-break danger should accumulate with a cause-specific corrective prompt")
 		return false
 	for frame in 40:
 		await create_timer(0.05).timeout
@@ -1168,10 +1155,6 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		return false
 	if not is_zero_approx(float(fight_snapshot.get("high_tension_danger", 0.0))):
 		_fail("Yielding through the playable-world input should quickly drain line-break danger")
-		return false
-	await process_frame
-	if tension_regions.get_node("Excessive").modulate != Color.WHITE:
-		_fail("The excessive-tension pulse should clear after yielding back to safety")
 		return false
 	_push_action(&"set_hook", true)
 	for frame in 120:

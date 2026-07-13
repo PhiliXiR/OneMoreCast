@@ -33,6 +33,9 @@ volume_db = -12.0
 [node name="BiteCue" type="AudioStreamPlayer" parent="."]
 volume_db = -14.0
 
+[node name="DangerCue" type="AudioStreamPlayer" parent="."]
+volume_db = -13.0
+
 [node name="ActionPanel" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 3
@@ -124,6 +127,15 @@ text = "SLACK"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 12
 
+[node name="FightReadout" type="Label" parent="ActionPanel/Layout"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+text = ""
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.7, 0.78, 0.82, 1)
+theme_override_font_sizes/font_size = 12
+
 [node name="Safe" type="Label" parent="ActionPanel/Layout/TensionRegions"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -204,6 +216,16 @@ text = "Change presentation"
 layout_mode = 2
 mouse_filter = 0
 text = "Follow far-bank field note"
+
+[node name="AccessibilityMeterButton" type="Button" parent="LogPanel/Layout"]
+layout_mode = 2
+mouse_filter = 0
+text = "Accessibility: tension meter off"
+
+[node name="PlaytestReadoutButton" type="Button" parent="LogPanel/Layout"]
+layout_mode = 2
+mouse_filter = 0
+text = "Playtest readout off"
 
 [node name="HomePanel" type="PanelContainer" parent="."]
 layout_mode = 1
