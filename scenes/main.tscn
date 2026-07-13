@@ -163,3 +163,8 @@ layout_mode = 2
 mouse_filter = 2
 text = "Journal:\n- No casts yet."
 autowrap_mode = 3
+
+[node name="InspectObservationButton" type="Button" parent="LogPanel/Layout"]
+layout_mode = 2
+mouse_filter = 0
+text = "Inspect latest observation"

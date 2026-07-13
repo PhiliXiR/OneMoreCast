@@ -1,5 +1,7 @@
 extends Node3D
 
+signal fishing_evidence_observed(kind: String, detail: String)
+
 enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 
 @export var player_path: NodePath
@@ -172,11 +174,13 @@ func _update_waiting_lure_reaction() -> void:
 
 
 func _update_fish_signs(delta: float) -> void:
+	var response := get_fish_presence_response()
 	_ambient_presence_elapsed += delta
 	if lake_surface != null and lake_surface.has_method("request_ambient_fish_sign") and _ambient_presence_elapsed >= _next_ambient_presence_at:
-		lake_surface.call("request_ambient_fish_sign", _get_ambient_fish_sign_position(), 0.55, 0.72)
-		_next_ambient_presence_at += 2.4
+		lake_surface.call("request_ambient_fish_sign", _get_ambient_fish_sign_position(), float(response["ambient_strength"]), 0.72)
+		_next_ambient_presence_at += float(response["ambient_interval"])
 		_fish_presence_feedback_label = "ambient fish sign"
+		fishing_evidence_observed.emit("fish sign", String(response["ambient_detail"]))
 	var waiting := did_last_cast_land_in_water() and is_cast_landed() and not _bite_feedback_active and not _reel_feedback_active
 	if not waiting:
 		_waiting_sign_elapsed = 0.0
@@ -188,9 +192,10 @@ func _update_fish_signs(delta: float) -> void:
 	if lake_surface == null:
 		return
 	if _waiting_sign_elapsed >= _next_lure_sign_at and lake_surface.has_method("request_lure_fish_sign"):
-		lake_surface.call("request_lure_fish_sign", _get_lure_fish_sign_position(), 0.7, 0.48)
-		_next_lure_sign_at += 0.62
+		lake_surface.call("request_lure_fish_sign", _get_lure_fish_sign_position(), float(response["lure_strength"]), 0.48)
+		_next_lure_sign_at += float(response["lure_interval"])
 		_fish_presence_feedback_label = "lure fish sign"
+		fishing_evidence_observed.emit("lure-focused sign", String(response["lure_detail"]))
 
 
 func _get_ambient_fish_sign_position() -> Vector3:
@@ -280,6 +285,12 @@ func get_fishing_conditions() -> Dictionary:
 	return {"micro_habitat": "prototype water", "time_of_day": "day", "presentation": "lure rig"}
 
 
+func get_fish_presence_response() -> Dictionary:
+	if home_water_provider != null and home_water_provider.has_method("get_fish_presence_response"):
+		return home_water_provider.call("get_fish_presence_response") as Dictionary
+	return {"ambient_interval": 2.4, "ambient_strength": 0.55, "lure_interval": 0.62, "lure_strength": 0.7, "bite_wait_multiplier": 1.0, "ambient_detail": "A fish sign disturbs the water.", "lure_detail": "A fish sign gathers near the lure.", "bite_detail": "A fish takes the lure."}
+
+
 func get_condition_summary() -> String:
 	if home_water_provider != null and home_water_provider.has_method("get_condition_summary"):
 		return home_water_provider.call("get_condition_summary") as String
@@ -306,7 +317,7 @@ func is_cast_landed() -> bool:
 func get_waiting_for_bite_duration() -> float:
 	if last_landing_quality <= 0.0:
 		return 0.0
-	return lerpf(1.25, 0.65, last_landing_quality)
+	return lerpf(1.25, 0.65, last_landing_quality) * float(get_fish_presence_response()["bite_wait_multiplier"])
 
 
 func trigger_bite_feedback() -> bool:
@@ -317,6 +328,7 @@ func trigger_bite_feedback() -> bool:
 	_bite_feedback_elapsed = 0.0
 	_bite_feedback_label = "bite twitch"
 	_fish_presence_feedback_label = "bite signal"
+	fishing_evidence_observed.emit("bite", String(get_fish_presence_response()["bite_detail"]))
 	if lake_surface != null and lake_surface.has_method("request_bite_signal"):
 		lake_surface.call("request_bite_signal", _cast_destination, 1.0, 0.9)
 	return true

@@ -3,6 +3,7 @@ extends Control
 enum CastState { READY, CASTING, WAITING, BITE, REELING, LANDED_FISH, RESULT }
 const STATE_NAMES := ["ready", "casting", "waiting", "bite", "reeling", "landed fish", "result"]
 const BLUEGILL := {"name": "Dock Bluegill", "weight": 0.7}
+const FieldJournalScript = preload("res://journal/field_journal.gd")
 
 @export var spatial_casting_provider_path: NodePath
 @onready var state_label: Label = $ActionPanel/Layout/StateLabel
@@ -16,12 +17,13 @@ const BLUEGILL := {"name": "Dock Bluegill", "weight": 0.7}
 @onready var tutorial_label: Label = $ActionPanel/Layout/TutorialLabel
 @onready var inventory_label: Label = $LogPanel/Layout/InventoryLabel
 @onready var journal_label: Label = $LogPanel/Layout/JournalLabel
+@onready var inspect_observation_button: Button = $LogPanel/Layout/InspectObservationButton
 @onready var surge_cue: AudioStreamPlayer = $SurgeCue
 
 var state := CastState.READY
 var cast_count := 0
 var inventory := {}
-var journal: Array[String] = []
+var field_journal := FieldJournalScript.new()
 var spatial_casting_provider: Node
 var hook_set := false
 var bite_window_open := false
@@ -34,11 +36,15 @@ var _tutorial_release_shown := false
 var _tutorial_slack_danger_shown := false
 var _tutorial_high_tension_danger_shown := false
 var _last_fight_phase := -1
+var _observed_evidence_kinds := {}
 
 
 func _ready() -> void:
 	spatial_casting_provider = get_node_or_null(spatial_casting_provider_path)
+	if spatial_casting_provider != null and spatial_casting_provider.has_signal("fishing_evidence_observed"):
+		spatial_casting_provider.fishing_evidence_observed.connect(_on_fishing_evidence_observed)
 	cast_button.pressed.connect(_on_action_pressed)
+	inspect_observation_button.pressed.connect(_on_inspect_observation_pressed)
 	cast_button.button_down.connect(func() -> void: set_reel_held(true))
 	cast_button.button_up.connect(func() -> void: set_reel_held(false))
 	var cue_stream := AudioStreamGenerator.new()
@@ -91,6 +97,7 @@ func _start_cast() -> void:
 		_update_view(_provider_string("get_cast_block_reason", "Cannot cast from here."))
 		return
 	cast_count += 1
+	_observed_evidence_kinds.clear()
 	cast_button.disabled = true
 	await _run_cast_sequence()
 
@@ -198,7 +205,7 @@ func _finish_landed_fish() -> void:
 	var name: String = BLUEGILL["name"]
 	var weight: float = BLUEGILL["weight"]
 	inventory[name] = inventory.get(name, 0) + 1
-	_record_journal("Cast %d: caught %s (%.1f lb, %s)." % [cast_count, name, weight, _context()])
+	_record_observation("catch", "Caught %s (%.1f lb)." % [name, weight], "This presentation can produce a Dock Bluegill here.")
 	result_label.text = "Latest result: %s, %.1f lb" % [name, weight]
 	quality_label.text = _context()
 	state = CastState.RESULT
@@ -211,7 +218,7 @@ func _finish_fight_loss(outcome: int) -> void:
 	_hide_fight_hud()
 	var broke := outcome == FishFightModel.Outcome.LINE_BREAK
 	var cause := "line break" if broke else "thrown hook"
-	_record_journal("Cast %d: %s (%s)." % [cast_count, cause, _context()])
+	_record_observation(cause, "Lost the hooked Dock Bluegill after %s." % ("reeling through a surge" if broke else "allowing line slack during recovery"), "Yield sooner during a surge to protect line tension." if broke else "Reel during recovery to prevent line slack.")
 	result_label.text = "Latest result: %s" % cause
 	quality_label.text = _context()
 	_update_view(("The line breaks. Yield sooner during a surge." if broke else "The fish throws the hook. Reel during recovery."))
@@ -221,7 +228,9 @@ func _finish_fight_loss(outcome: int) -> void:
 
 func _finish_simple_result(label: String, message: String) -> void:
 	state = CastState.RESULT
-	_record_journal("Cast %d: %s (%s)." % [cast_count, label, _context()])
+	var detail := "The bite signal passed before you set the hook." if label == "missed bite" else message
+	var lesson := "Set the hook promptly when the bite signal appears." if label == "missed bite" else "Aim the lure into fishable water."
+	_record_observation(label, detail, lesson)
 	result_label.text = "Latest result: %s" % label
 	quality_label.text = _context()
 	_update_view(message)
@@ -264,9 +273,20 @@ func _play_surge_cue() -> void:
 	playback.push_buffer(frames)
 
 
-func _record_journal(entry: String) -> void:
-	journal.push_front(entry)
-	if journal.size() > 5: journal.resize(5)
+func _on_fishing_evidence_observed(kind: String, detail: String) -> void:
+	if _observed_evidence_kinds.has(kind):
+		return
+	_observed_evidence_kinds[kind] = true
+	_record_observation(kind, detail)
+	_update_view(message_label.text)
+
+
+func _on_inspect_observation_pressed() -> void:
+	_update_view(field_journal.inspect_latest())
+
+
+func _record_observation(kind: String, detail: String, lesson := "") -> void:
+	field_journal.record(kind, _provider_conditions(), detail, lesson)
 
 
 func _update_view(message: String) -> void:
@@ -285,13 +305,15 @@ func _inventory_text() -> String:
 
 
 func _journal_text() -> String:
-	if journal.is_empty(): return "Journal:\n- No casts yet."
-	var lines: Array[String] = ["Journal:"]
-	for entry in journal: lines.append("- %s" % entry)
-	return "\n".join(lines)
+	return field_journal.render()
+
+
+func get_latest_observation_inspection() -> String:
+	return field_journal.inspect_latest()
 
 
 func _context() -> String: return _provider_string("get_result_context", "Landing quality: baseline")
+func _provider_conditions() -> Dictionary: return spatial_casting_provider.call("get_fishing_conditions") as Dictionary if spatial_casting_provider != null and spatial_casting_provider.has_method("get_fishing_conditions") else {"micro_habitat": "prototype water", "time_of_day": "day", "presentation": "lure rig"}
 func _update_spatial_view() -> void: spatial_label.text = _provider_string("get_spatial_feedback", "Spatial: standalone cast mode")
 func _provider_bool(method: String, fallback: bool) -> bool: return spatial_casting_provider.call(method) as bool if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
 func _provider_float(method: String, fallback: float) -> float: return spatial_casting_provider.call(method) as float if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
