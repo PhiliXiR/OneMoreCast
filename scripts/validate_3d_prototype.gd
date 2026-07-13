@@ -276,7 +276,7 @@ func _validate_casting_hud(casting_ui: Node) -> bool:
 	if cast_button == null:
 		_fail("Casting HUD is missing the cast button")
 		return false
-	for path in ["ActionPanel/Layout/TensionGauge", "ActionPanel/Layout/TensionRegions", "ActionPanel/Layout/TutorialLabel"]:
+	for path in ["ActionPanel/Layout/TensionGauge", "ActionPanel/Layout/TensionRegions", "ActionPanel/Layout/TutorialLabel", "ActionPanel/Layout/RigTag", "ActionPanel/Layout/LocalNeedLabel", "ActionPanel/Layout/PromptLabel"]:
 		if casting_ui.get_node_or_null(path) == null:
 			_fail("Casting HUD is missing fish-fight feedback: %s" % path)
 			return false
@@ -805,6 +805,20 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	var message_label := casting_ui.get_node("ActionPanel/Layout/MessageLabel") as Label
 	var result_label := casting_ui.get_node("ActionPanel/Layout/ResultLabel") as Label
 	var inventory_label := casting_ui.get_node("LogPanel/Layout/InventoryLabel") as Label
+	var rig_tag := casting_ui.get_node("ActionPanel/Layout/RigTag") as Label
+	var local_need_label := casting_ui.get_node("ActionPanel/Layout/LocalNeedLabel") as Label
+	var prompt_label := casting_ui.get_node("ActionPanel/Layout/PromptLabel") as Label
+	var spatial_label := casting_ui.get_node("ActionPanel/Layout/SpatialLabel") as Label
+	var tutorial_label := casting_ui.get_node("ActionPanel/Layout/TutorialLabel") as Label
+	if not rig_tag.visible or not local_need_label.visible or prompt_label.text != "Cast":
+		_fail("Ready state should show the compact active-rig and Cast HUD")
+		return false
+	if not local_need_label.text.contains("▸"):
+		_fail("Local need should remain collapsed in the water-first HUD")
+		return false
+	if spatial_label.visible or result_label.visible:
+		_fail("Pre-fight HUD should not expose spatial scores or result panels over the water")
+		return false
 	casting_ui.call("configure_next_fight", {
 		"recovery_only": false,
 		"recovery_reel_rate": 0.5,
@@ -835,6 +849,9 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if not saw_waiting:
 		_fail("Cast loop did not enter waiting-for-bite after the lure landed")
 		return false
+	if prompt_label.visible or cast_button.visible or not tutorial_label.text.is_empty():
+		_fail("Waiting HUD should stay quiet and leave ambient fish signs to the world")
+		return false
 	_push_action(&"set_hook", true)
 	_push_action(&"set_hook", false)
 	await create_timer(0.05).timeout
@@ -855,6 +872,9 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 		return false
 	if cast_button.text != "Set Hook" or cast_button.disabled:
 		_fail("Cast button should become an enabled Set Hook action during the bite window")
+		return false
+	if prompt_label.text != "Set Hook" or not tutorial_label.text.contains("sharp line twitch"):
+		_fail("Bite HUD should provide a distinct contextual Set Hook prompt")
 		return false
 	_push_action(&"set_hook", true)
 	_push_action(&"set_hook", false)
@@ -887,7 +907,6 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 	if tension_regions.get_node("Excessive").text != "EXCESSIVE":
 		_fail("Line-tension gauge should distinguish high tension")
 		return false
-	var tutorial_label := casting_ui.get_node("ActionPanel/Layout/TutorialLabel") as Label
 	if not tutorial_label.text.contains("Hold to reel"):
 		_fail("The first fight should show the hold-to-reel instruction")
 		return false

@@ -16,6 +16,9 @@ const HomeCommunityScript = preload("res://community/home_community.gd")
 @onready var tension_gauge: ProgressBar = $ActionPanel/Layout/TensionGauge
 @onready var tension_regions: HBoxContainer = $ActionPanel/Layout/TensionRegions
 @onready var tutorial_label: Label = $ActionPanel/Layout/TutorialLabel
+@onready var rig_tag: Label = $ActionPanel/Layout/RigTag
+@onready var local_need_label: Label = $ActionPanel/Layout/LocalNeedLabel
+@onready var prompt_label: Label = $ActionPanel/Layout/PromptLabel
 @onready var inventory_label: Label = $LogPanel/Layout/InventoryLabel
 @onready var journal_label: Label = $LogPanel/Layout/JournalLabel
 @onready var inspect_observation_button: Button = $LogPanel/Layout/InspectObservationButton
@@ -26,6 +29,7 @@ const HomeCommunityScript = preload("res://community/home_community.gd")
 @onready var retain_observation_button: Button = $HomePanel/Layout/RetainObservationButton
 @onready var help_mara_button: Button = $HomePanel/Layout/HelpMaraButton
 @onready var surge_cue: AudioStreamPlayer = $SurgeCue
+@onready var bite_cue: AudioStreamPlayer = $BiteCue
 
 var state := CastState.READY
 var cast_count := 0
@@ -40,6 +44,8 @@ var fight_model: FishFightModel
 var fight_snapshot := {}
 var next_fight_configuration := {}
 var _tutorial_hold_shown := false
+var _tutorial_cast_shown := false
+var _tutorial_bite_shown := false
 var _tutorial_release_shown := false
 var _tutorial_slack_danger_shown := false
 var _tutorial_high_tension_danger_shown := false
@@ -64,6 +70,10 @@ func _ready() -> void:
 	cue_stream.mix_rate = 22050.0
 	cue_stream.buffer_length = 0.12
 	surge_cue.stream = cue_stream
+	var bite_stream := AudioStreamGenerator.new()
+	bite_stream.mix_rate = 22050.0
+	bite_stream.buffer_length = 0.12
+	bite_cue.stream = bite_stream
 	_update_view(home_community.begin_first_outing())
 	_update_home_community_view()
 
@@ -93,6 +103,10 @@ func get_fight_snapshot() -> Dictionary:
 
 func is_surge_cue_playing() -> bool:
 	return surge_cue.playing
+
+
+func is_bite_cue_playing() -> bool:
+	return bite_cue.playing
 
 
 func set_reel_held(held: bool) -> void:
@@ -127,7 +141,8 @@ func _run_cast_sequence() -> void:
 	state = CastState.WAITING
 	_update_view("The line settles. Watch the water and keep the rod ready.")
 	await get_tree().create_timer(_provider_float("get_waiting_for_bite_duration", 0.85)).timeout
-	_provider_call("trigger_bite_feedback")
+	if _provider_bool("trigger_bite_feedback", false):
+		_play_bite_cue()
 	hook_set = false
 	bite_window_open = true
 	state = CastState.BITE
@@ -168,6 +183,7 @@ func _begin_fight() -> void:
 	cast_button.text = "Hold to Reel"
 	tension_gauge.visible = true
 	tension_regions.visible = true
+	_set_pre_fight_hud_visible(false)
 	if not _tutorial_hold_shown:
 		_tutorial_hold_shown = true
 		tutorial_label.text = "Hold to reel while the fish recovers."
@@ -288,6 +304,18 @@ func _play_surge_cue() -> void:
 	playback.push_buffer(frames)
 
 
+func _play_bite_cue() -> void:
+	bite_cue.play()
+	var playback := bite_cue.get_stream_playback() as AudioStreamGeneratorPlayback
+	if playback == null: return
+	var frames := PackedVector2Array()
+	for index in 4410:
+		var envelope := 1.0 - float(index) / 4410.0
+		var sample := sin(float(index) * TAU * 920.0 / 22050.0) * envelope * 0.18
+		frames.append(Vector2(sample, sample))
+	playback.push_buffer(frames)
+
+
 func _on_fishing_evidence_observed(kind: String, detail: String) -> void:
 	if _observed_evidence_kinds.has(kind):
 		return
@@ -366,7 +394,58 @@ func _update_view(message: String) -> void:
 	message_label.text = message
 	inventory_label.text = _inventory_text()
 	journal_label.text = _journal_text()
+	_present_contextual_hud()
 	_update_spatial_view()
+
+
+func _present_contextual_hud() -> void:
+	var pre_fight := state == CastState.READY or state == CastState.CASTING or state == CastState.WAITING or state == CastState.BITE
+	_set_pre_fight_hud_visible(pre_fight)
+	if not pre_fight:
+		return
+	rig_tag.text = "LURE RIG"
+	local_need_label.text = "Local need  ▸  Check Eli's dock line"
+	if state == CastState.BITE:
+		prompt_label.text = "Set Hook"
+		if not _tutorial_bite_shown:
+			_tutorial_bite_shown = true
+			tutorial_label.text = "The sharp line twitch is a bite. Set the hook now."
+		else:
+			tutorial_label.text = ""
+		cast_button.text = "Set Hook"
+	elif state == CastState.READY:
+		prompt_label.text = "Cast"
+		if not _tutorial_cast_shown:
+			_tutorial_cast_shown = true
+			tutorial_label.text = "Aim for water, then cast."
+		else:
+			tutorial_label.text = ""
+		cast_button.text = "Cast"
+	elif state == CastState.CASTING:
+		prompt_label.text = ""
+		tutorial_label.text = ""
+	else:
+		prompt_label.text = ""
+		tutorial_label.text = ""
+
+
+func _set_pre_fight_hud_visible(visible: bool) -> void:
+	rig_tag.visible = visible
+	local_need_label.visible = visible
+	prompt_label.visible = visible and (state == CastState.READY or state == CastState.BITE)
+	cast_button.visible = state == CastState.READY or state == CastState.BITE or state == CastState.REELING
+	if visible:
+		state_label.visible = false
+		spatial_label.visible = false
+		message_label.visible = false
+		result_label.visible = false
+		quality_label.visible = false
+		return
+	state_label.visible = true
+	spatial_label.visible = false
+	message_label.visible = true
+	result_label.visible = false
+	quality_label.visible = false
 
 
 func _inventory_text() -> String:

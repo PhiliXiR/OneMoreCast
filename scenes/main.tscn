@@ -30,18 +30,21 @@ theme_override_font_sizes/font_size = 28
 [node name="SurgeCue" type="AudioStreamPlayer" parent="."]
 volume_db = -12.0
 
+[node name="BiteCue" type="AudioStreamPlayer" parent="."]
+volume_db = -14.0
+
 [node name="ActionPanel" type="PanelContainer" parent="."]
 layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
+anchors_preset = 3
+anchor_left = 1.0
 anchor_top = 1.0
-anchor_right = 0.5
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -260.0
-offset_top = -270.0
-offset_right = 260.0
-offset_bottom = -24.0
-grow_horizontal = 2
+offset_left = -360.0
+offset_top = -218.0
+offset_right = -24.0
+offset_bottom = -28.0
+grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 2
 
@@ -49,6 +52,27 @@ mouse_filter = 2
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
+
+[node name="RigTag" type="Label" parent="ActionPanel/Layout"]
+layout_mode = 2
+mouse_filter = 2
+text = "LURE RIG"
+theme_override_colors/font_color = Color(0.62, 0.86, 0.98, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="LocalNeedLabel" type="Label" parent="ActionPanel/Layout"]
+layout_mode = 2
+mouse_filter = 2
+text = "Local need  ▸  Check Eli's dock line"
+theme_override_colors/font_color = Color(0.76, 0.8, 0.78, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="PromptLabel" type="Label" parent="ActionPanel/Layout"]
+layout_mode = 2
+mouse_filter = 2
+text = "Cast"
+theme_override_colors/font_color = Color(0.93, 0.96, 0.98, 1)
+theme_override_font_sizes/font_size = 22
 
 [node name="StateLabel" type="Label" parent="ActionPanel/Layout"]
 layout_mode = 2
@@ -116,12 +140,13 @@ horizontal_alignment = 1
 theme_override_font_sizes/font_size = 12
 
 [node name="CastButton" type="Button" parent="ActionPanel/Layout"]
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 mouse_filter = 0
 text = "Cast"
 
 [node name="ResultLabel" type="Label" parent="ActionPanel/Layout"]
+visible = false
 layout_mode = 2
 mouse_filter = 2
 text = "Latest result: none"
@@ -129,6 +154,7 @@ horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="QualityLabel" type="Label" parent="ActionPanel/Layout"]
+visible = false
 layout_mode = 2
 mouse_filter = 2
 text = "Landing quality: n/a"
