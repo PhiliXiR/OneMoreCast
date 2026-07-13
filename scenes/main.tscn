@@ -178,3 +178,39 @@ text = "Change presentation"
 layout_mode = 2
 mouse_filter = 0
 text = "Follow far-bank field note"
+
+[node name="HomePanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 16.0
+offset_top = 72.0
+offset_right = 420.0
+offset_bottom = 382.0
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Layout" type="VBoxContainer" parent="HomePanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="CommunityLabel" type="Label" parent="HomePanel/Layout"]
+layout_mode = 2
+mouse_filter = 2
+text = "Home community"
+autowrap_mode = 3
+
+[node name="ReturnHomeButton" type="Button" parent="HomePanel/Layout"]
+layout_mode = 2
+mouse_filter = 0
+text = "Share latest observation with Eli"
+
+[node name="RetainObservationButton" type="Button" parent="HomePanel/Layout"]
+layout_mode = 2
+mouse_filter = 0
+text = "Retain latest observation in journal"
+
+[node name="HelpMaraButton" type="Button" parent="HomePanel/Layout"]
+layout_mode = 2
+mouse_filter = 0
+text = "Use latest catch to help Mara"

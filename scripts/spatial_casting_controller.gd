@@ -298,6 +298,12 @@ func get_condition_summary() -> String:
 	return "%s · %s · %s" % [conditions["micro_habitat"], conditions["time_of_day"], conditions["presentation"]]
 
 
+func advance_home_context(next_time_of_day: String) -> String:
+	if home_water_provider != null and home_water_provider.has_method("advance_home_context"):
+		return home_water_provider.call("advance_home_context", next_time_of_day) as String
+	return "Home context advances to %s." % next_time_of_day
+
+
 func inspect_lure_evidence(observation: Dictionary) -> String:
 	return home_water_provider.call("inspect_lure_evidence", observation) as String if home_water_provider != null and home_water_provider.has_method("inspect_lure_evidence") else "No fieldcraft note is available here."
 

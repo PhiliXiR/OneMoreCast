@@ -88,6 +88,11 @@ func get_condition_summary() -> String:
 	]
 
 
+func advance_home_context(next_time_of_day: String) -> String:
+	time_of_day = next_time_of_day
+	return "Fishing conditions now read %s." % get_condition_summary()
+
+
 ## This is readable authored behavior, not a hidden catch table.  It controls
 ## only the frequency and character of pre-hook evidence at each micro-habitat.
 func get_fish_presence_response() -> Dictionary:

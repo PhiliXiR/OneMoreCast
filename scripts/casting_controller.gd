@@ -4,6 +4,7 @@ enum CastState { READY, CASTING, WAITING, BITE, REELING, LANDED_FISH, RESULT }
 const STATE_NAMES := ["ready", "casting", "waiting", "bite", "reeling", "landed fish", "result"]
 const BLUEGILL := {"name": "Dock Bluegill", "weight": 0.7}
 const FieldJournalScript = preload("res://journal/field_journal.gd")
+const HomeCommunityScript = preload("res://community/home_community.gd")
 
 @export var spatial_casting_provider_path: NodePath
 @onready var state_label: Label = $ActionPanel/Layout/StateLabel
@@ -20,12 +21,17 @@ const FieldJournalScript = preload("res://journal/field_journal.gd")
 @onready var inspect_observation_button: Button = $LogPanel/Layout/InspectObservationButton
 @onready var presentation_button: Button = $LogPanel/Layout/PresentationButton
 @onready var far_bank_button: Button = $LogPanel/Layout/FarBankButton
+@onready var community_label: Label = $HomePanel/Layout/CommunityLabel
+@onready var return_home_button: Button = $HomePanel/Layout/ReturnHomeButton
+@onready var retain_observation_button: Button = $HomePanel/Layout/RetainObservationButton
+@onready var help_mara_button: Button = $HomePanel/Layout/HelpMaraButton
 @onready var surge_cue: AudioStreamPlayer = $SurgeCue
 
 var state := CastState.READY
 var cast_count := 0
 var inventory := {}
 var field_journal := FieldJournalScript.new()
+var home_community := HomeCommunityScript.new()
 var spatial_casting_provider: Node
 var hook_set := false
 var bite_window_open := false
@@ -49,6 +55,9 @@ func _ready() -> void:
 	inspect_observation_button.pressed.connect(_on_inspect_observation_pressed)
 	presentation_button.pressed.connect(_on_presentation_pressed)
 	far_bank_button.pressed.connect(_on_far_bank_pressed)
+	return_home_button.pressed.connect(_on_return_home_pressed)
+	retain_observation_button.pressed.connect(_on_retain_observation_pressed)
+	help_mara_button.pressed.connect(_on_help_mara_pressed)
 	cast_button.button_down.connect(func() -> void: set_reel_held(true))
 	cast_button.button_up.connect(func() -> void: set_reel_held(false))
 	var cue_stream := AudioStreamGenerator.new()
@@ -56,6 +65,7 @@ func _ready() -> void:
 	cue_stream.buffer_length = 0.12
 	surge_cue.stream = cue_stream
 	_update_view("The water is quiet. Make the first cast.")
+	_update_home_community_view()
 
 
 func _process(delta: float) -> void:
@@ -300,8 +310,55 @@ func _on_far_bank_pressed() -> void:
 	_update_view(_provider_string("travel_to_far_bank", "The far bank is not reachable here."))
 
 
+func _on_return_home_pressed() -> void:
+	_update_view(return_home_with_latest_observation(HomeCommunityScript.Disposition.SHARE))
+
+
+func _on_retain_observation_pressed() -> void:
+	_update_view(return_home_with_latest_observation(HomeCommunityScript.Disposition.RETAIN))
+
+
+func _on_help_mara_pressed() -> void:
+	_update_view(return_home_with_latest_observation(HomeCommunityScript.Disposition.HELP))
+
+
+func return_home_with_latest_observation(disposition := HomeCommunityScript.Disposition.SHARE) -> String:
+	var observation := field_journal.latest()
+	if observation.is_empty():
+		return "Return home after recording an observation; the community needs something specific to respond to."
+	var return_beat := home_community.return_from_outing(observation, String(_provider_conditions()["time_of_day"]), disposition)
+	var next_time := String(return_beat["next_time_of_day"])
+	_provider_call("advance_home_context", [next_time])
+	var clues := return_beat["watershed_mystery_clues"] as Array
+	var message := "Home — %s\n%s\n%s\n%s\n%s" % [
+		String(return_beat["local_need_response"]),
+		String(return_beat["fieldcraft_response"]),
+		String(return_beat["local_story_response"]),
+		String(clues[0]),
+		String(clues[1]),
+	]
+	_update_home_community_view()
+	return message
+
+
+func _update_home_community_view() -> void:
+	var interaction_lines: Array[String] = ["Home community:"]
+	for interaction in home_community.get_recurring_interactions():
+		interaction_lines.append("- %s (%s): %s" % [
+			String(interaction["name"]),
+			String(interaction["role"]),
+			String(interaction["summary"]),
+		])
+	interaction_lines.append(home_community.get_relationship_summary())
+	community_label.text = "\n".join(interaction_lines)
+	var latest_observation := field_journal.latest()
+	var can_help_mara := home_community.get_available_dispositions(latest_observation).has(HomeCommunityScript.Disposition.HELP)
+	help_mara_button.disabled = not can_help_mara
+
+
 func _record_observation(kind: String, detail: String, lesson := "") -> void:
 	field_journal.record(kind, _provider_conditions(), detail, lesson)
+	_update_home_community_view()
 
 
 func _update_view(message: String) -> void:
