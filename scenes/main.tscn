@@ -168,3 +168,13 @@ autowrap_mode = 3
 layout_mode = 2
 mouse_filter = 0
 text = "Inspect latest observation"
+
+[node name="PresentationButton" type="Button" parent="LogPanel/Layout"]
+layout_mode = 2
+mouse_filter = 0
+text = "Change presentation"
+
+[node name="FarBankButton" type="Button" parent="LogPanel/Layout"]
+layout_mode = 2
+mouse_filter = 0
+text = "Follow far-bank field note"

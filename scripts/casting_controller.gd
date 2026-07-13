@@ -18,6 +18,8 @@ const FieldJournalScript = preload("res://journal/field_journal.gd")
 @onready var inventory_label: Label = $LogPanel/Layout/InventoryLabel
 @onready var journal_label: Label = $LogPanel/Layout/JournalLabel
 @onready var inspect_observation_button: Button = $LogPanel/Layout/InspectObservationButton
+@onready var presentation_button: Button = $LogPanel/Layout/PresentationButton
+@onready var far_bank_button: Button = $LogPanel/Layout/FarBankButton
 @onready var surge_cue: AudioStreamPlayer = $SurgeCue
 
 var state := CastState.READY
@@ -45,6 +47,8 @@ func _ready() -> void:
 		spatial_casting_provider.fishing_evidence_observed.connect(_on_fishing_evidence_observed)
 	cast_button.pressed.connect(_on_action_pressed)
 	inspect_observation_button.pressed.connect(_on_inspect_observation_pressed)
+	presentation_button.pressed.connect(_on_presentation_pressed)
+	far_bank_button.pressed.connect(_on_far_bank_pressed)
 	cast_button.button_down.connect(func() -> void: set_reel_held(true))
 	cast_button.button_up.connect(func() -> void: set_reel_held(false))
 	var cue_stream := AudioStreamGenerator.new()
@@ -158,7 +162,7 @@ func _begin_fight() -> void:
 		_tutorial_hold_shown = true
 		tutorial_label.text = "Hold to reel while the fish recovers."
 	_provider_call("begin_reel_feedback", [999.0])
-	_update_view("The Dock Bluegill is hooked. Reel during recovery; yield when it surges.")
+	_update_view("%s is hooked. Reel during recovery; yield when it surges." % String(_provider_fish()["name"]))
 
 
 func _vary_durations(base_durations: Array, variation: float) -> Array[float]:
@@ -200,16 +204,17 @@ func _finish_landed_fish() -> void:
 	cast_button.disabled = true
 	_hide_fight_hud()
 	_provider_call("present_landed_fish")
-	_update_view("The bluegill breaks the surface — landed!")
+	var fish := _provider_fish()
+	var name: String = fish["name"]
+	var weight: float = fish["weight"]
+	_update_view("%s breaks the surface — landed!" % name)
 	await get_tree().create_timer(0.8).timeout
-	var name: String = BLUEGILL["name"]
-	var weight: float = BLUEGILL["weight"]
 	inventory[name] = inventory.get(name, 0) + 1
-	_record_observation("catch", "Caught %s (%.1f lb)." % [name, weight], "This presentation can produce a Dock Bluegill here.")
+	_record_observation("catch", "Caught %s (%.1f lb)." % [name, weight], "This presentation can produce %s here." % name)
 	result_label.text = "Latest result: %s, %.1f lb" % [name, weight]
 	quality_label.text = _context()
 	state = CastState.RESULT
-	_update_view("You record the Dock Bluegill as a catch.")
+	_update_view("You record %s as a catch." % name)
 	await _return_ready()
 
 
@@ -282,7 +287,17 @@ func _on_fishing_evidence_observed(kind: String, detail: String) -> void:
 
 
 func _on_inspect_observation_pressed() -> void:
-	_update_view(field_journal.inspect_latest())
+	var inspection := field_journal.inspect_latest()
+	var note := _provider_string_with_args("inspect_lure_evidence", [field_journal.latest()], "")
+	_update_view("%s\n%s" % [inspection, note] if not note.is_empty() else inspection)
+
+
+func _on_presentation_pressed() -> void:
+	_update_view(_provider_string("cycle_presentation", "Only the lure rig is available."))
+
+
+func _on_far_bank_pressed() -> void:
+	_update_view(_provider_string("travel_to_far_bank", "The far bank is not reachable here."))
 
 
 func _record_observation(kind: String, detail: String, lesson := "") -> void:
@@ -313,11 +328,13 @@ func get_latest_observation_inspection() -> String:
 
 
 func _context() -> String: return _provider_string("get_result_context", "Landing quality: baseline")
+func _provider_fish() -> Dictionary: return spatial_casting_provider.call("get_hooked_fish") as Dictionary if spatial_casting_provider != null and spatial_casting_provider.has_method("get_hooked_fish") else BLUEGILL.duplicate(true)
 func _provider_conditions() -> Dictionary: return spatial_casting_provider.call("get_fishing_conditions") as Dictionary if spatial_casting_provider != null and spatial_casting_provider.has_method("get_fishing_conditions") else {"micro_habitat": "prototype water", "time_of_day": "day", "presentation": "lure rig"}
 func _update_spatial_view() -> void: spatial_label.text = _provider_string("get_spatial_feedback", "Spatial: standalone cast mode")
 func _provider_bool(method: String, fallback: bool) -> bool: return spatial_casting_provider.call(method) as bool if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
 func _provider_float(method: String, fallback: float) -> float: return spatial_casting_provider.call(method) as float if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
 func _provider_string(method: String, fallback: String) -> String: return spatial_casting_provider.call(method) as String if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
+func _provider_string_with_args(method: String, args: Array, fallback: String) -> String: return spatial_casting_provider.callv(method, args) as String if spatial_casting_provider != null and spatial_casting_provider.has_method(method) else fallback
 func _provider_call(method: String, args := []) -> void:
 	if spatial_casting_provider != null and spatial_casting_provider.has_method(method): spatial_casting_provider.callv(method, args)
 func _wait_for_landing() -> void:

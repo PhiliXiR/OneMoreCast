@@ -298,6 +298,22 @@ func get_condition_summary() -> String:
 	return "%s · %s · %s" % [conditions["micro_habitat"], conditions["time_of_day"], conditions["presentation"]]
 
 
+func inspect_lure_evidence(observation: Dictionary) -> String:
+	return home_water_provider.call("inspect_lure_evidence", observation) as String if home_water_provider != null and home_water_provider.has_method("inspect_lure_evidence") else "No fieldcraft note is available here."
+
+
+func cycle_presentation() -> String:
+	return home_water_provider.call("cycle_presentation") as String if home_water_provider != null and home_water_provider.has_method("cycle_presentation") else "Only the lure rig is available."
+
+
+func travel_to_far_bank() -> String:
+	return home_water_provider.call("travel_to_far_bank") as String if home_water_provider != null and home_water_provider.has_method("travel_to_far_bank") else "The far bank is not reachable here."
+
+
+func get_hooked_fish() -> Dictionary:
+	return home_water_provider.call("get_hooked_fish") as Dictionary if home_water_provider != null and home_water_provider.has_method("get_hooked_fish") else {"name": "Dock Bluegill", "weight": 0.7}
+
+
 func get_landing_feedback_label() -> String:
 	return _landing_feedback_label
 

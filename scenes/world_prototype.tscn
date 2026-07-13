@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=33 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -33,6 +33,14 @@ height = 0.025
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lily_pad"]
 albedo_color = Color(0.13, 0.3, 0.1, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_far_bank_rock"]
+radius = 0.8
+height = 1.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_far_bank_rock"]
+albedo_color = Color(0.19, 0.22, 0.23, 1)
+roughness = 0.95
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_water_zone"]
 size = Vector3(28, 1, 16)
@@ -152,6 +160,22 @@ material_override = SubResource("StandardMaterial3D_lily_pad")
 position = Vector3(0.48, 0.04, 1.35)
 mesh = SubResource("CylinderMesh_lily_pad")
 material_override = SubResource("StandardMaterial3D_lily_pad")
+
+[node name="DeepRockyFarBank" type="Node3D" parent="HomeWater"]
+position = Vector3(-8.5, 0, 2.4)
+
+[node name="RockShelfOne" type="MeshInstance3D" parent="HomeWater/DeepRockyFarBank"]
+position = Vector3(0, 0.38, 0)
+scale = Vector3(1.7, 0.7, 1)
+mesh = SubResource("SphereMesh_far_bank_rock")
+material_override = SubResource("StandardMaterial3D_far_bank_rock")
+
+[node name="RockShelfTwo" type="MeshInstance3D" parent="HomeWater/DeepRockyFarBank"]
+position = Vector3(1.25, 0.25, 0.7)
+rotation = Vector3(0, 0.55, 0)
+scale = Vector3(1.1, 0.48, 0.8)
+mesh = SubResource("SphereMesh_far_bank_rock")
+material_override = SubResource("StandardMaterial3D_far_bank_rock")
 
 [node name="WaterZone" type="Area3D" parent="."]
 position = Vector3(0, 0.35, 10)
