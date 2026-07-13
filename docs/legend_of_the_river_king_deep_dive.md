@@ -32,6 +32,15 @@ LEGEND OF THE RIVER KING</p>
 </tbody>
 </table>
 
+> **Scope note — non-normative research.** This is a comparative design study,
+> not a product decision or implementation plan for One More Cast. The canonical
+> scope for the current compact foundation is `docs/design-philosophy.md`,
+> `docs/compact-foundation-implementation-plan.md`, and ADRs 0002–0004. Ideas
+> below involving a full watershed, boats, weather- or season-driven fish
+> rules, combat or survival pressure, large species counts, multiplayer, and
+> broad regional progression are deferred research only; they are not approved
+> for the compact foundation and must not override those ADRs.
+
 EXECUTIVE SUMMARY
 
 # What makes River King special
