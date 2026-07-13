@@ -220,7 +220,7 @@ func _finish_landed_fish() -> void:
 	_update_view("%s breaks the surface — landed!" % name)
 	await get_tree().create_timer(0.8).timeout
 	inventory[name] = inventory.get(name, 0) + 1
-	_record_observation("catch", "Caught %s (%.1f lb)." % [name, weight], "This presentation can produce %s here." % name)
+	record_observation("catch", "Caught %s (%.1f lb)." % [name, weight], "This presentation can produce %s here." % name)
 	result_label.text = "Latest result: %s, %.1f lb" % [name, weight]
 	quality_label.text = _context()
 	state = CastState.RESULT
@@ -233,7 +233,7 @@ func _finish_fight_loss(outcome: int) -> void:
 	_hide_fight_hud()
 	var broke := outcome == FishFightModel.Outcome.LINE_BREAK
 	var cause := "line break" if broke else "thrown hook"
-	_record_observation(cause, "Lost the hooked Dock Bluegill after %s." % ("reeling through a surge" if broke else "allowing line slack during recovery"), "Yield sooner during a surge to protect line tension." if broke else "Reel during recovery to prevent line slack.")
+	record_observation(cause, "Lost the hooked Dock Bluegill after %s." % ("reeling through a surge" if broke else "allowing line slack during recovery"), "Yield sooner during a surge to protect line tension." if broke else "Reel during recovery to prevent line slack.")
 	result_label.text = "Latest result: %s" % cause
 	quality_label.text = _context()
 	_update_view(("The line breaks. Yield sooner during a surge." if broke else "The fish throws the hook. Reel during recovery."))
@@ -245,7 +245,7 @@ func _finish_simple_result(label: String, message: String) -> void:
 	state = CastState.RESULT
 	var detail := "The bite signal passed before you set the hook." if label == "missed bite" else message
 	var lesson := "Set the hook promptly when the bite signal appears." if label == "missed bite" else "Aim the lure into fishable water."
-	_record_observation(label, detail, lesson)
+	record_observation(label, detail, lesson)
 	result_label.text = "Latest result: %s" % label
 	quality_label.text = _context()
 	_update_view(message)
@@ -292,7 +292,7 @@ func _on_fishing_evidence_observed(kind: String, detail: String) -> void:
 	if _observed_evidence_kinds.has(kind):
 		return
 	_observed_evidence_kinds[kind] = true
-	_record_observation(kind, detail)
+	record_observation(kind, detail)
 	_update_view(message_label.text)
 
 
@@ -356,7 +356,7 @@ func _update_home_community_view() -> void:
 	help_mara_button.disabled = not can_help_mara
 
 
-func _record_observation(kind: String, detail: String, lesson := "") -> void:
+func record_observation(kind: String, detail: String, lesson := "") -> void:
 	field_journal.record(kind, _provider_conditions(), detail, lesson)
 	_update_home_community_view()
 
@@ -382,6 +382,18 @@ func _journal_text() -> String:
 
 func get_latest_observation_inspection() -> String:
 	return field_journal.inspect_latest()
+
+
+func get_latest_observation() -> Dictionary:
+	return field_journal.latest()
+
+
+func get_available_return_dispositions() -> Array[int]:
+	return home_community.get_available_dispositions(field_journal.latest())
+
+
+func get_player_message() -> String:
+	return message_label.text
 
 
 func _context() -> String: return _provider_string("get_result_context", "Landing quality: baseline")
