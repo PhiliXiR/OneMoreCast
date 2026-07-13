@@ -103,6 +103,8 @@ func _run_validation() -> void:
 		return
 	if not _validate_spatial_casting(world.get_node("SpatialCasting")):
 		return
+	if not _validate_home_water_conditions(world):
+		return
 	if not await _validate_waiting_fish_signs(world):
 		return
 	if not await _validate_cast_button_starts_cast(world.get_node("CastingUILayer/CastingUI")):
@@ -340,6 +342,8 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		"get_landing_quality",
 		"get_spatial_feedback",
 		"get_result_context",
+		"get_fishing_conditions",
+		"get_condition_summary",
 		"get_target_point",
 		"get_rod_tip_position",
 		"get_line_endpoint",
@@ -405,6 +409,36 @@ func _validate_spatial_casting(spatial_casting: Node) -> bool:
 		_fail("Valid spatial cast should expose a short waiting-for-bite duration")
 		return false
 
+	return true
+
+
+func _validate_home_water_conditions(world: Node) -> bool:
+	var provider := world.get_node_or_null("HomeWater")
+	var player := world.get_node_or_null("PlayerRig") as Node3D
+	var spatial := world.get_node_or_null("SpatialCasting")
+	if provider == null or player == null or spatial == null:
+		_fail("Home-water conditions require the provider, player, and spatial casting seam")
+		return false
+	player.global_position = Vector3(0.0, 0.1, -2.0)
+	var dock_conditions := spatial.call("get_fishing_conditions") as Dictionary
+	if dock_conditions.get("micro_habitat") != "working dock shallows" or dock_conditions.get("time_of_day") != "early morning":
+		_fail("Dock conditions should be supplied by the home-water provider")
+		return false
+	if not (spatial.call("can_start_cast") as bool):
+		_fail("The dock shallows should remain a valid cast location")
+		return false
+	player.global_position = Vector3(7.0, 0.1, -2.0)
+	var inlet_conditions := spatial.call("get_fishing_conditions") as Dictionary
+	if inlet_conditions.get("micro_habitat") != "vegetated inlet":
+		_fail("Walking to the inlet should change the provider-supplied micro-habitat")
+		return false
+	if not (spatial.call("can_start_cast") as bool):
+		_fail("The vegetated inlet should be a valid cast location")
+		return false
+	if not String(spatial.call("get_spatial_feedback")).to_lower().contains("vegetated inlet"):
+		_fail("The active micro-habitat should be readable before casting")
+		return false
+	player.global_position = Vector3(0.0, 0.1, -2.0)
 	return true
 
 
@@ -1010,6 +1044,12 @@ func _validate_cast_button_starts_cast(casting_ui: Node) -> bool:
 			break
 	if state_label.text != "State: ready":
 		_fail("Fishing loop should return to ready after catch result")
+		return false
+	var player_for_inlet := casting_ui.get_node("../../PlayerRig") as Node3D
+	var spatial_for_inlet := casting_ui.get_node("../../SpatialCasting")
+	player_for_inlet.global_position = Vector3(7.0, 0.1, -2.0)
+	if not String(spatial_for_inlet.call("get_condition_summary")).to_lower().contains("vegetated inlet"):
+		_fail("The second outing should begin from the visibly named vegetated inlet")
 		return false
 	var inventory_before_loss := inventory_label.text
 	var journal_label := casting_ui.get_node("LogPanel/Layout/JournalLabel") as Label

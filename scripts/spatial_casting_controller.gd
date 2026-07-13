@@ -16,6 +16,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @export var line_overlay_path: NodePath
 @export var landing_feedback_path: NodePath
 @export var lake_surface_path: NodePath
+@export var home_water_provider_path: NodePath
 @export var water_center := Vector3(0.0, 0.0, 10.0)
 @export var water_size := Vector2(28.0, 16.0)
 @export var cast_distance := 8.0
@@ -37,6 +38,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @onready var line_overlay: Line2D = get_node_or_null(line_overlay_path) as Line2D
 @onready var landing_feedback: Node3D = get_node_or_null(landing_feedback_path) as Node3D
 @onready var lake_surface: Node = get_node_or_null(lake_surface_path)
+@onready var home_water_provider: Node = get_node_or_null(home_water_provider_path)
 
 var target_point := Vector3.ZERO
 var target_valid := false
@@ -259,7 +261,8 @@ func get_spatial_feedback() -> String:
 	_update_cast_target()
 	var near_text := "near water" if player_near_water else "too far from water"
 	var target_text := "target valid" if target_valid else "target off water"
-	return "Spatial: %s, %s, line %s, landing %s" % [
+	return "%s\nSpatial: %s, %s, line %s, landing %s" % [
+		get_condition_summary(),
 		near_text,
 		target_text,
 		get_line_state_label(),
@@ -268,7 +271,20 @@ func get_spatial_feedback() -> String:
 
 
 func get_result_context() -> String:
-	return "Landing quality: %s" % last_landing_label
+	return "%s · Landing quality: %s" % [get_condition_summary(), last_landing_label]
+
+
+func get_fishing_conditions() -> Dictionary:
+	if home_water_provider != null and home_water_provider.has_method("get_fishing_conditions"):
+		return home_water_provider.call("get_fishing_conditions") as Dictionary
+	return {"micro_habitat": "prototype water", "time_of_day": "day", "presentation": "lure rig"}
+
+
+func get_condition_summary() -> String:
+	if home_water_provider != null and home_water_provider.has_method("get_condition_summary"):
+		return home_water_provider.call("get_condition_summary") as String
+	var conditions := get_fishing_conditions()
+	return "%s · %s · %s" % [conditions["micro_habitat"], conditions["time_of_day"], conditions["presentation"]]
 
 
 func get_landing_feedback_label() -> String:

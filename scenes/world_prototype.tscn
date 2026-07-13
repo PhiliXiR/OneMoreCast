@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=31 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/docks/dock_straight_01.tscn" id="5_dock"]
 [ext_resource type="PackedScene" path="res://world/lake_surface.tscn" id="6_lake_surface"]
 [ext_resource type="PackedScene" path="res://assets/fish/dock_bluegill.glb" id="7_bluegill"]
+[ext_resource type="Script" path="res://world/home_water_provider.gd" id="8_home_water"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_ground"]
 size = Vector3(24, 0.2, 11)
@@ -16,6 +17,22 @@ size = Vector3(24, 0.2, 11)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
 albedo_color = Color(0.38, 0.58, 0.34, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_reed"]
+top_radius = 0.045
+bottom_radius = 0.07
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_reed"]
+albedo_color = Color(0.17, 0.36, 0.13, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_lily_pad"]
+top_radius = 0.34
+bottom_radius = 0.34
+height = 0.025
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lily_pad"]
+albedo_color = Color(0.13, 0.3, 0.1, 1)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_water_zone"]
 size = Vector3(28, 1, 16)
@@ -93,6 +110,48 @@ rotation = Vector3(0, 1.5708, 0)
 
 [node name="LakeSurface" parent="." instance=ExtResource("6_lake_surface")]
 position = Vector3(0, -0.02, 10)
+
+[node name="HomeWater" type="Node3D" parent="."]
+script = ExtResource("8_home_water")
+player_path = NodePath("../PlayerRig")
+
+[node name="VegetatedInlet" type="Node3D" parent="HomeWater"]
+position = Vector3(8.7, 0, 5.4)
+
+[node name="ReedOne" type="MeshInstance3D" parent="HomeWater/VegetatedInlet"]
+position = Vector3(-1.1, 0.85, 0)
+mesh = SubResource("CylinderMesh_reed")
+material_override = SubResource("StandardMaterial3D_reed")
+
+[node name="ReedTwo" type="MeshInstance3D" parent="HomeWater/VegetatedInlet"]
+position = Vector3(-0.55, 0.85, 0.35)
+mesh = SubResource("CylinderMesh_reed")
+material_override = SubResource("StandardMaterial3D_reed")
+
+[node name="ReedThree" type="MeshInstance3D" parent="HomeWater/VegetatedInlet"]
+position = Vector3(0.05, 0.85, -0.12)
+mesh = SubResource("CylinderMesh_reed")
+material_override = SubResource("StandardMaterial3D_reed")
+
+[node name="ReedFour" type="MeshInstance3D" parent="HomeWater/VegetatedInlet"]
+position = Vector3(0.58, 0.85, 0.45)
+mesh = SubResource("CylinderMesh_reed")
+material_override = SubResource("StandardMaterial3D_reed")
+
+[node name="ReedFive" type="MeshInstance3D" parent="HomeWater/VegetatedInlet"]
+position = Vector3(1.1, 0.85, -0.06)
+mesh = SubResource("CylinderMesh_reed")
+material_override = SubResource("StandardMaterial3D_reed")
+
+[node name="LilyPadOne" type="MeshInstance3D" parent="HomeWater/VegetatedInlet"]
+position = Vector3(-0.4, 0.04, 1.1)
+mesh = SubResource("CylinderMesh_lily_pad")
+material_override = SubResource("StandardMaterial3D_lily_pad")
+
+[node name="LilyPadTwo" type="MeshInstance3D" parent="HomeWater/VegetatedInlet"]
+position = Vector3(0.48, 0.04, 1.35)
+mesh = SubResource("CylinderMesh_lily_pad")
+material_override = SubResource("StandardMaterial3D_lily_pad")
 
 [node name="WaterZone" type="Area3D" parent="."]
 position = Vector3(0, 0.35, 10)
@@ -196,6 +255,7 @@ fishing_line_path = NodePath("../FishingLine")
 line_overlay_path = NodePath("../LineOverlayLayer/FishingLineOverlay")
 landing_feedback_path = NodePath("../LandingFeedback")
 lake_surface_path = NodePath("../LakeSurface")
+home_water_provider_path = NodePath("../HomeWater")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 7, -3)
