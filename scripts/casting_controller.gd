@@ -64,7 +64,7 @@ func _ready() -> void:
 	cue_stream.mix_rate = 22050.0
 	cue_stream.buffer_length = 0.12
 	surge_cue.stream = cue_stream
-	_update_view("The water is quiet. Make the first cast.")
+	_update_view(home_community.begin_first_outing())
 	_update_home_community_view()
 
 

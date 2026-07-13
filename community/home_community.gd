@@ -34,6 +34,10 @@ const WATERSHED_MYSTERY_CLUES := [
 ]
 
 
+func begin_first_outing() -> String:
+	return "Mara needs a read on the home water for the dockside supper. Start at the working dock shallows, or walk east to the vegetated inlet: dock posts mark open shallows; reeds mark sheltered water. Record what the lure rig tells you, then bring the observation home."
+
+
 func get_recurring_interactions() -> Array[Dictionary]:
 	var interactions: Array[Dictionary] = []
 	for interaction in RECURRING_INTERACTIONS:
