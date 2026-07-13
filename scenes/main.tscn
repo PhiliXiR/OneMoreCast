@@ -78,6 +78,15 @@ grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 2
 
+[node name="FieldJournalButton" type="Button" parent="ActionPanel"]
+visible = false
+layout_mode = 0
+offset_left = -132.0
+offset_top = -42.0
+offset_right = -8.0
+offset_bottom = -8.0
+text = "Field Journal"
+
 [node name="Layout" type="VBoxContainer" parent="ActionPanel"]
 layout_mode = 2
 mouse_filter = 2
@@ -201,6 +210,7 @@ horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="LogPanel" type="PanelContainer" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
@@ -259,6 +269,7 @@ mouse_filter = 0
 text = "Playtest readout off"
 
 [node name="HomePanel" type="PanelContainer" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 0
 offset_left = 16.0
@@ -297,3 +308,101 @@ text = "Retain latest observation in journal"
 layout_mode = 2
 mouse_filter = 0
 text = "Use latest catch to help Mara"
+
+[node name="OutcomeCard" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -230.0
+offset_top = -178.0
+offset_right = 230.0
+offset_bottom = 178.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Layout" type="VBoxContainer" parent="OutcomeCard"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="OutcomeCard/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+horizontal_alignment = 1
+text = "Fish landed"
+
+[node name="Details" type="Label" parent="OutcomeCard/Layout"]
+layout_mode = 2
+autowrap_mode = 3
+horizontal_alignment = 1
+text = "Dock Bluegill · 0.7 lb"
+
+[node name="Lesson" type="Label" parent="OutcomeCard/Layout"]
+layout_mode = 2
+autowrap_mode = 3
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.75, 0.9, 0.78, 1)
+
+[node name="KeepButton" type="Button" parent="OutcomeCard/Layout"]
+layout_mode = 2
+text = "Keep"
+
+[node name="ReleaseButton" type="Button" parent="OutcomeCard/Layout"]
+layout_mode = 2
+text = "Release"
+
+[node name="ContinueButton" type="Button" parent="OutcomeCard/Layout"]
+layout_mode = 2
+text = "Continue"
+
+[node name="FishAgainButton" type="Button" parent="OutcomeCard/Layout"]
+visible = false
+layout_mode = 2
+text = "Fish Again"
+
+[node name="FieldJournalMenu" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -250.0
+offset_right = 280.0
+offset_bottom = 250.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Layout" type="VBoxContainer" parent="FieldJournalMenu"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="FieldJournalMenu/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+text = "Field Journal"
+
+[node name="Observations" type="Label" parent="FieldJournalMenu/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+autowrap_mode = 3
+text = "No observations yet."
+
+[node name="ReturnPrompt" type="Label" parent="FieldJournalMenu/Layout"]
+layout_mode = 2
+autowrap_mode = 3
+theme_override_colors/font_color = Color(0.75, 0.9, 0.78, 1)
+
+[node name="ReturnHomeButton" type="Button" parent="FieldJournalMenu/Layout"]
+layout_mode = 2
+text = "Return Home"
+
+[node name="CloseButton" type="Button" parent="FieldJournalMenu/Layout"]
+layout_mode = 2
+text = "Continue Fishing"

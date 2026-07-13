@@ -1,6 +1,7 @@
 extends Control
 
 enum CastState { READY, CASTING, WAITING, BITE, REELING, LANDED_FISH, RESULT }
+enum LandedFishAction { KEEP, RELEASE, CONTINUE }
 const STATE_NAMES := ["ready", "casting", "waiting", "bite", "reeling", "landed fish", "result"]
 const BLUEGILL := {"name": "Dock Bluegill", "weight": 0.7}
 const COMPACT_HUD_MIN_WIDTH := 1500.0
@@ -45,6 +46,20 @@ const HomeCommunityScript = preload("res://community/home_community.gd")
 @onready var drawer_toggle_button: Button = $DrawerToggleButton
 @onready var journal_drawer_tab: Button = $JournalDrawerTab
 @onready var community_drawer_tab: Button = $CommunityDrawerTab
+@onready var field_journal_button: Button = $ActionPanel/FieldJournalButton
+@onready var outcome_card: PanelContainer = $OutcomeCard
+@onready var outcome_title: Label = $OutcomeCard/Layout/Title
+@onready var outcome_details: Label = $OutcomeCard/Layout/Details
+@onready var outcome_lesson: Label = $OutcomeCard/Layout/Lesson
+@onready var keep_button: Button = $OutcomeCard/Layout/KeepButton
+@onready var release_button: Button = $OutcomeCard/Layout/ReleaseButton
+@onready var continue_button: Button = $OutcomeCard/Layout/ContinueButton
+@onready var fish_again_button: Button = $OutcomeCard/Layout/FishAgainButton
+@onready var field_journal_menu: PanelContainer = $FieldJournalMenu
+@onready var journal_observations: Label = $FieldJournalMenu/Layout/Observations
+@onready var return_prompt: Label = $FieldJournalMenu/Layout/ReturnPrompt
+@onready var journal_return_home_button: Button = $FieldJournalMenu/Layout/ReturnHomeButton
+@onready var journal_close_button: Button = $FieldJournalMenu/Layout/CloseButton
 
 var state := CastState.READY
 var cast_count := 0
@@ -72,6 +87,7 @@ var _fight_tutorial_complete := false
 var _last_danger_kind := ""
 var _drawer_open := false
 var _drawer_section := "journal"
+var _return_confirmation_pending := false
 
 
 func _ready() -> void:
@@ -90,6 +106,13 @@ func _ready() -> void:
 	drawer_toggle_button.pressed.connect(_on_drawer_toggle_pressed)
 	journal_drawer_tab.pressed.connect(func() -> void: _show_drawer_section("journal"))
 	community_drawer_tab.pressed.connect(func() -> void: _show_drawer_section("community"))
+	field_journal_button.pressed.connect(_toggle_field_journal)
+	keep_button.pressed.connect(func() -> void: _resolve_landed_fish(LandedFishAction.KEEP))
+	release_button.pressed.connect(func() -> void: _resolve_landed_fish(LandedFishAction.RELEASE))
+	continue_button.pressed.connect(func() -> void: _resolve_landed_fish(LandedFishAction.CONTINUE))
+	fish_again_button.pressed.connect(_dismiss_outcome_card)
+	journal_return_home_button.pressed.connect(_on_journal_return_home_pressed)
+	journal_close_button.pressed.connect(_close_field_journal)
 	resized.connect(_update_responsive_layout)
 	playtest_readout_button.visible = OS.is_debug_build()
 	cast_button.button_down.connect(func() -> void: set_reel_held(true))
@@ -119,6 +142,10 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"toggle_pause") and state != CastState.REELING:
+		_toggle_field_journal()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed(&"set_hook"):
 		if state == CastState.REELING: set_reel_held(true)
 		else: _on_action_pressed()
@@ -194,8 +221,8 @@ func _update_responsive_layout() -> void:
 		drawer_toggle_button.visible = false
 		journal_drawer_tab.visible = false
 		community_drawer_tab.visible = false
-		log_panel.visible = true
-		home_panel.visible = true
+		log_panel.visible = false
+		home_panel.visible = false
 		_place_panel(action_panel, Rect2(size.x - 360.0, size.y - 218.0, 336.0, 190.0))
 		_place_panel(log_panel, Rect2(size.x - 344.0, 72.0, 328.0, 250.0))
 		_place_panel(home_panel, Rect2(16.0, 72.0, 404.0, 310.0))
@@ -207,13 +234,10 @@ func _update_responsive_layout() -> void:
 	var action_height := clampf(size.y * 0.26, 190.0, 218.0)
 	var action_rect := Rect2(margin, size.y - action_height - margin, size.x - margin * 2.0, action_height)
 	_place_panel(action_panel, action_rect)
-	drawer_toggle_button.visible = true
-	drawer_toggle_button.position = Vector2(size.x - 188.0, 12.0)
-	drawer_toggle_button.size = Vector2(176.0, 38.0)
-	drawer_toggle_button.text = "Close drawer" if _drawer_open else "Journal / Community"
+	drawer_toggle_button.visible = false
 	var content_rect := Rect2((size.x - drawer_width) * 0.5, 60.0, drawer_width, maxf(0.0, action_rect.position.y - 70.0))
-	journal_drawer_tab.visible = _drawer_open
-	community_drawer_tab.visible = _drawer_open
+	journal_drawer_tab.visible = false
+	community_drawer_tab.visible = false
 	journal_drawer_tab.position = content_rect.position
 	journal_drawer_tab.size = Vector2(92.0, 34.0)
 	community_drawer_tab.position = content_rect.position + Vector2(100.0, 0.0)
@@ -222,8 +246,8 @@ func _update_responsive_layout() -> void:
 	community_drawer_tab.disabled = _drawer_section == "community"
 	content_rect.position.y += 42.0
 	content_rect.size.y = maxf(0.0, content_rect.size.y - 42.0)
-	log_panel.visible = _drawer_open and _drawer_section == "journal"
-	home_panel.visible = _drawer_open and _drawer_section == "community"
+	log_panel.visible = false
+	home_panel.visible = false
 	if log_panel.visible:
 		_place_panel(log_panel, content_rect)
 	if home_panel.visible:
@@ -376,13 +400,10 @@ func _finish_landed_fish() -> void:
 	var weight: float = fish["weight"]
 	_update_view("%s breaks the surface — landed!" % name)
 	await get_tree().create_timer(0.8).timeout
-	inventory[name] = inventory.get(name, 0) + 1
 	record_observation("catch", "Caught %s (%.1f lb)." % [name, weight], "This presentation can produce %s here." % name)
-	result_label.text = "Latest result: %s, %.1f lb" % [name, weight]
-	quality_label.text = _context()
 	state = CastState.RESULT
 	_update_view("You record %s as a catch." % name)
-	await _return_ready()
+	_present_landed_outcome(fish)
 
 
 func _finish_fight_loss(outcome: int) -> void:
@@ -396,7 +417,7 @@ func _finish_fight_loss(outcome: int) -> void:
 	quality_label.text = _context()
 	_update_view(("The line breaks. Yield sooner during a surge." if broke else "The fish throws the hook. Reel during recovery."))
 	_provider_call("end_fight_presentation")
-	await _return_ready(0.7)
+	_present_loss_outcome(cause, String(field_journal.latest().get("lesson", "")))
 
 
 func _finish_simple_result(label: String, message: String) -> void:
@@ -407,17 +428,103 @@ func _finish_simple_result(label: String, message: String) -> void:
 	result_label.text = "Latest result: %s" % label
 	quality_label.text = _context()
 	_update_view(message)
-	await _return_ready()
+	_present_loss_outcome(label, lesson)
 
 
 func _return_ready(delay := 0.9) -> void:
 	await get_tree().create_timer(delay).timeout
+	_set_ready_for_cast()
+
+
+func _set_ready_for_cast(message := "Ready for another cast.") -> void:
 	state = CastState.READY
 	cast_button.disabled = false
 	cast_button.text = "Cast"
 	cast_button.modulate = Color.WHITE
 	tutorial_label.text = ""
-	_update_view("Ready for another cast.")
+	_update_view(message)
+
+
+func _present_landed_outcome(fish: Dictionary) -> void:
+	var conditions := _provider_conditions()
+	outcome_title.text = "%s landed" % String(fish["name"])
+	outcome_details.text = "%s · %.1f lb\nMicro-habitat: %s\nPresentation: %s\nTag: %s conditions" % [
+		String(fish["name"]), float(fish["weight"]), String(conditions["micro_habitat"]), String(conditions["presentation"]), String(conditions["time_of_day"]),
+	]
+	outcome_lesson.text = "Field note: %s" % String(field_journal.latest().get("lesson", ""))
+	_configure_outcome_actions(true)
+	outcome_card.visible = true
+
+
+func _present_loss_outcome(cause: String, lesson: String) -> void:
+	outcome_title.text = cause.capitalize()
+	outcome_details.text = "Observation recorded: %s." % String(field_journal.latest().get("detail", cause))
+	outcome_lesson.text = "Try next: %s" % lesson
+	_configure_outcome_actions(false)
+	outcome_card.visible = true
+
+
+func _configure_outcome_actions(landed_fish: bool) -> void:
+	keep_button.visible = landed_fish
+	release_button.visible = landed_fish
+	continue_button.visible = landed_fish
+	fish_again_button.visible = not landed_fish
+
+
+func _resolve_landed_fish(action: LandedFishAction) -> void:
+	if action == LandedFishAction.KEEP:
+		var fish := _provider_fish()
+		var name := String(fish["name"])
+		inventory[name] = inventory.get(name, 0) + 1
+		_update_view("You keep the %s for this outing." % name)
+	elif action == LandedFishAction.RELEASE:
+		_update_view("You release the fish and keep the observation.")
+	else:
+		_update_view("The catch is recorded. The water is ready for another cast.")
+	_dismiss_outcome_card()
+
+
+func _dismiss_outcome_card() -> void:
+	outcome_card.visible = false
+	if state == CastState.RESULT:
+		_set_ready_for_cast()
+
+
+func _toggle_field_journal() -> void:
+	if field_journal_menu.visible:
+		_close_field_journal()
+		return
+	if state == CastState.REELING or outcome_card.visible:
+		return
+	_return_confirmation_pending = false
+	journal_observations.text = field_journal.render()
+	var latest := field_journal.latest()
+	journal_return_home_button.disabled = latest.is_empty()
+	return_prompt.text = "Record an observation before returning home." if latest.is_empty() else "Latest observation: %s" % String(latest.get("detail", ""))
+	journal_return_home_button.text = "Return Home"
+	field_journal_menu.visible = true
+
+
+func _close_field_journal() -> void:
+	field_journal_menu.visible = false
+	_return_confirmation_pending = false
+
+
+func _on_journal_return_home_pressed() -> void:
+	var latest := field_journal.latest()
+	if latest.is_empty():
+		return
+	if not _return_confirmation_pending:
+		_return_confirmation_pending = true
+		return_prompt.text = "Return home with this observation?\n%s" % field_journal.inspect_latest()
+		journal_return_home_button.text = "Confirm Return Home"
+		return
+	var response := return_home_with_latest_observation(HomeCommunityScript.Disposition.SHARE)
+	journal_observations.text = "%s\n\n%s" % [field_journal.render(), response]
+	return_prompt.text = "The latest observation has been shared at home."
+	journal_return_home_button.disabled = true
+	journal_return_home_button.text = "Returned Home"
+	_return_confirmation_pending = false
 
 
 func _try_set_hook() -> void:
@@ -603,6 +710,7 @@ func _present_contextual_hud() -> void:
 func _set_pre_fight_hud_visible(visible: bool) -> void:
 	rig_tag.visible = visible
 	local_need_label.visible = visible
+	field_journal_button.visible = visible and state == CastState.READY
 	prompt_label.visible = visible and (state == CastState.READY or state == CastState.BITE)
 	cast_button.visible = state == CastState.READY or state == CastState.BITE or state == CastState.REELING
 	if visible:
