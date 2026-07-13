@@ -41,6 +41,21 @@ func _run() -> void:
 	if not prompt.text.contains("YIELD"):
 		_fail("Surge must teach the contextual Yield action")
 		return
+	var spatial := world.get_node("SpatialCasting")
+	fight.start({"recovery_durations": [3.0], "danger_window": 2.0})
+	for step in 18: hud.set("fight_snapshot", fight.advance(0.1, false))
+	hud.call("_present_fight")
+	if spatial.call("get_fight_danger_feedback_label") != "slack" or not prompt.text.contains("LINE SLACK"):
+		_fail("Slack requires its own world state and corrective prompt")
+		return
+	fight.start({"recovery_durations": [0.01], "windup_durations": [0.01], "surge_durations": [3.0], "danger_window": 2.0})
+	fight.advance(0.02, true)
+	fight.advance(0.02, true)
+	for step in 4: hud.set("fight_snapshot", fight.advance(0.1, true))
+	hud.call("_present_fight")
+	if spatial.call("get_fight_danger_feedback_label") != "high tension" or not prompt.text.contains("LINE STRAIN"):
+		_fail("High tension requires its own world state and corrective prompt")
+		return
 	print("Fight feedback validation passed")
 	quit(0)
 

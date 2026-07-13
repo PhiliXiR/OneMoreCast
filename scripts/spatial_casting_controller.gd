@@ -91,6 +91,7 @@ var _reel_feedback_completed := false
 var _fight_phase := FishFightModel.Phase.RECOVERY
 var _fight_reel_held := false
 var _fight_landing_progress := 0.0
+var _fight_danger_kind := ""
 var _fish_animation_player: AnimationPlayer
 var _fish_mouth_anchor: Node3D
 var _fish_silhouette_material := StandardMaterial3D.new()
@@ -406,6 +407,7 @@ func apply_fight_snapshot(snapshot: Dictionary, reel_held: bool) -> void:
 	_fight_phase = int(snapshot.get("phase", FishFightModel.Phase.RECOVERY))
 	_fight_reel_held = reel_held
 	_fight_landing_progress = clampf(float(snapshot.get("landing_progress", 0.0)), 0.0, 1.0)
+	_fight_danger_kind = "high tension" if float(snapshot.get("high_tension_danger", 0.0)) > 0.0 else ("slack" if float(snapshot.get("slack_danger", 0.0)) > 0.0 else "")
 	_play_fish_animation(&"calm_swim" if _fight_phase == FishFightModel.Phase.RECOVERY else &"struggle_surge")
 	_set_fish_silhouette(_fight_landing_progress < 0.38)
 	if line_overlay != null:
@@ -416,7 +418,8 @@ func apply_fight_snapshot(snapshot: Dictionary, reel_held: bool) -> void:
 
 
 func _get_fight_line_width() -> float:
-	return [1.35, 1.85, 2.4][_fight_phase]
+	var base: float = float([1.35, 1.85, 2.4][_fight_phase])
+	return base + 0.7 if _fight_danger_kind == "high tension" else (maxf(0.8, base - 0.55) if _fight_danger_kind == "slack" else base)
 
 
 func _get_fight_fish_motion() -> float:
@@ -424,7 +427,8 @@ func _get_fight_fish_motion() -> float:
 
 
 func _get_fight_rod_load() -> float:
-	return [0.08, 0.13, 0.2][_fight_phase]
+	var base: float = float([0.08, 0.13, 0.2][_fight_phase])
+	return base + 0.12 if _fight_danger_kind == "high tension" else (maxf(0.02, base - 0.05) if _fight_danger_kind == "slack" else base)
 
 
 func _request_fight_water_reaction(resistance: float) -> void:
@@ -434,7 +438,14 @@ func _request_fight_water_reaction(resistance: float) -> void:
 	var strengths := [0.2, 0.42, 0.68]
 	var radii := [0.48, 0.72, 1.05]
 	var strength := clampf(strengths[_fight_phase] + resistance * 0.28, 0.0, 1.0)
-	lake_surface.call("set_fight_water_reaction", reactions[_fight_phase], _get_hooked_fish_surface_position(), strength, radii[_fight_phase], _get_cast_direction())
+	var radius: float = radii[_fight_phase]
+	if _fight_danger_kind == "high tension":
+		strength = minf(1.0, strength + 0.2)
+		radius += 0.22
+	elif _fight_danger_kind == "slack":
+		strength = maxf(0.08, strength - 0.14)
+		radius = maxf(0.32, radius - 0.18)
+	lake_surface.call("set_fight_water_reaction", reactions[_fight_phase], _get_hooked_fish_surface_position(), strength, radius, _get_cast_direction())
 
 
 func _request_landing_water_reaction() -> void:
@@ -534,6 +545,10 @@ func get_line_overlay_width() -> float:
 	if line_overlay == null:
 		return 0.0
 	return line_overlay.width
+
+
+func get_fight_danger_feedback_label() -> String:
+	return _fight_danger_kind if not _fight_danger_kind.is_empty() else "safe"
 
 
 func is_line_showing_valid_feedback() -> bool:

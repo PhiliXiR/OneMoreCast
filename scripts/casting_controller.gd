@@ -74,6 +74,7 @@ func _ready() -> void:
 	help_mara_button.pressed.connect(_on_help_mara_pressed)
 	accessibility_meter_button.pressed.connect(func() -> void: set_accessibility_tension_meter_enabled(not accessibility_tension_meter_enabled))
 	playtest_readout_button.pressed.connect(func() -> void: set_playtest_readout_enabled(not playtest_readout_enabled))
+	playtest_readout_button.visible = OS.is_debug_build()
 	cast_button.button_down.connect(func() -> void: set_reel_held(true))
 	cast_button.button_up.connect(func() -> void: set_reel_held(false))
 	var cue_stream := AudioStreamGenerator.new()
@@ -306,6 +307,7 @@ func _finish_landed_fish() -> void:
 func _finish_fight_loss(outcome: int) -> void:
 	state = CastState.RESULT
 	_hide_fight_hud()
+	_fight_tutorial_complete = true
 	var broke := outcome == FishFightModel.Outcome.LINE_BREAK
 	var cause := "line break" if broke else "thrown hook"
 	record_observation(cause, "Lost the hooked Dock Bluegill after %s." % ("reeling through a surge" if broke else "allowing line slack during recovery"), "Yield sooner during a surge to protect line tension." if broke else "Reel during recovery to prevent line slack.")
@@ -396,10 +398,11 @@ func _update_fight_optional_readouts() -> void:
 	tension_regions.visible = fighting and accessibility_tension_meter_enabled
 	fight_readout.visible = fighting and playtest_readout_enabled
 	if fighting and playtest_readout_enabled:
-		fight_readout.text = "PLAYTEST  tension %.2f | high %.2f | slack %.2f | landing %.2f | %s | %s" % [
+		var fish_response := "giving ground" if int(fight_snapshot.get("phase", FishFightModel.Phase.RECOVERY)) == FishFightModel.Phase.RECOVERY else "resisting"
+		fight_readout.text = "PLAYTEST  tension %.2f | high timer %.2f | slack timer %.2f | landing %.2f | %s | fish %s" % [
 			float(fight_snapshot.get("tension", 0.0)), float(fight_snapshot.get("high_tension_danger", 0.0)),
 			float(fight_snapshot.get("slack_danger", 0.0)), float(fight_snapshot.get("landing_progress", 0.0)),
-			String(fight_snapshot.get("phase_name", "")), String(fight_snapshot.get("outcome_name", "")),
+			String(fight_snapshot.get("phase_name", "")), fish_response,
 		]
 
 
