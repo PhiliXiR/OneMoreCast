@@ -40,11 +40,11 @@ func _run_validation() -> void:
 	if String(dock_conditions["micro_habitat"]) == String(inlet_conditions["micro_habitat"]):
 		_fail("Moving between visible home-water cues must produce a meaningful micro-habitat choice")
 		return
-	if not (spatial.call("can_start_cast") as bool) or not String(spatial.call("get_spatial_feedback")).contains("vegetated inlet"):
+	if not (spatial.call("can_start_cast") as bool) or not String(spatial.call("get_spatial_feedback")).to_lower().contains("vegetated inlet"):
 		_fail("The vegetated inlet must be a viable, player-readable fishing choice")
 		return
 
-	casting_ui.call("record_observation", "catch", "Caught Dock Bluegill (0.7 lb).", "The lure rig can produce Dock Bluegill beside the reeds.")
+	await casting_ui._finish_landed_fish()
 	var catch_observation := casting_ui.call("get_latest_observation") as Dictionary
 	if String(catch_observation["kind"]) != "catch" or String(catch_observation["micro_habitat"]) != "vegetated inlet":
 		_fail("A landed-fish outcome must record the selected fishing conditions in the field journal")
@@ -63,9 +63,9 @@ func _run_validation() -> void:
 		_fail("The first return must deliver the contradictory watershed-mystery clue")
 		return
 
-	casting_ui.call("record_observation", "thrown hook", "Lost the hooked fish after allowing line slack during recovery.", "Reel during recovery to prevent line slack.")
+	await casting_ui._finish_fight_loss(FishFightModel.Outcome.THROWN_HOOK)
 	var loss_observation := casting_ui.call("get_latest_observation") as Dictionary
-	if String(loss_observation["kind"]) != "thrown hook" or not String(loss_observation["lesson"]).contains("Reel during recovery"):
+	if String(loss_observation["kind"]) != "thrown hook" or String(loss_observation["micro_habitat"]) != "vegetated inlet" or not String(loss_observation["lesson"]).contains("Reel during recovery"):
 		_fail("An instructive-loss outcome must preserve its cause-specific lesson in the field journal")
 		return
 	if not String(casting_ui.call("get_latest_observation_inspection")).contains("Reel during recovery"):
