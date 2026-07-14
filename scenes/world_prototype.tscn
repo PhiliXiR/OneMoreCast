@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=37 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -8,6 +8,33 @@
 [ext_resource type="PackedScene" path="res://world/lake_surface.tscn" id="6_lake_surface"]
 [ext_resource type="PackedScene" path="res://assets/fish/dock_bluegill.glb" id="7_bluegill"]
 [ext_resource type="Script" path="res://world/home_water_provider.gd" id="8_home_water"]
+[ext_resource type="Script" path="res://world/home_water_presentation.gd" id="9_home_water_presentation"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_dawn"]
+sky_top_color = Color(0.18, 0.28, 0.46, 1)
+sky_horizon_color = Color(0.72, 0.58, 0.52, 1)
+ground_bottom_color = Color(0.08, 0.12, 0.15, 1)
+ground_horizon_color = Color(0.35, 0.42, 0.43, 1)
+sun_angle_max = 18.0
+sun_curve = 0.08
+
+[sub_resource type="Sky" id="Sky_dawn"]
+sky_material = SubResource("ProceduralSkyMaterial_dawn")
+
+[sub_resource type="Environment" id="Environment_dawn"]
+background_mode = 2
+sky = SubResource("Sky_dawn")
+ambient_light_source = 3
+ambient_light_color = Color(0.43, 0.56, 0.72, 1)
+ambient_light_energy = 0.72
+reflected_light_source = 2
+tonemap_mode = 2
+tonemap_exposure = 0.92
+fog_enabled = true
+fog_light_color = Color(0.62, 0.7, 0.77, 1)
+fog_light_energy = 0.6
+fog_density = 0.002
+fog_sky_affect = 0.7
 
 [sub_resource type="BoxMesh" id="BoxMesh_ground"]
 size = Vector3(24, 0.2, 11)
@@ -84,6 +111,9 @@ height = 0.36
 
 [node name="WorldPrototype" type="Node3D"]
 
+[node name="DawnEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_dawn")
+
 [node name="PlayerRig" parent="." instance=ExtResource("1_player")]
 position = Vector3(0, 0.1, -2)
 camera_output_provider_path = NodePath("../MMOCameraRig")
@@ -122,6 +152,9 @@ position = Vector3(0, -0.02, 10)
 [node name="HomeWater" type="Node3D" parent="."]
 script = ExtResource("8_home_water")
 player_path = NodePath("../PlayerRig")
+
+[node name="Presentation" type="Node3D" parent="HomeWater"]
+script = ExtResource("9_home_water_presentation")
 
 [node name="VegetatedInlet" type="Node3D" parent="HomeWater"]
 position = Vector3(8.7, 0, 5.4)
@@ -283,7 +316,9 @@ home_water_provider_path = NodePath("../HomeWater")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 7, -3)
-light_energy = 2.2
+light_color = Color(1, 0.74, 0.5, 1)
+light_energy = 1.7
+shadow_enabled = true
 
 [node name="CastingUILayer" type="CanvasLayer" parent="."]
 
