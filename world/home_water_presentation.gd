@@ -23,6 +23,10 @@ const FALLEN_TIMBER_NAME := "FallenTimber"
 const ROWBOAT_NAME := "MooringRowboat"
 const WEST_BUOY_NAME := "MarkerBuoyWest"
 const EAST_BUOY_NAME := "MarkerBuoyEast"
+const FAR_BANK_NAME := "FarBankSilhouette"
+const WATERSHED_MARKER_NAME := "WatershedSurveyMarker"
+const FAR_HORIZON_POSITION := Vector3(0.0, 0.0, 31.0)
+const FAR_HORIZON_WIDTH := 28.0
 
 var _shore_collision_count := 0
 
@@ -34,6 +38,7 @@ func _ready() -> void:
 	_build_open_water_landmarks()
 	_build_inlet_dressing()
 	_build_far_bank_dressing()
+	_build_far_horizon()
 
 
 func has_natural_shore_collision() -> bool:
@@ -64,6 +69,13 @@ func has_open_fishable_water() -> bool:
 		if landmark is Node3D and absf((landmark as Node3D).position.x) < OPEN_FISHING_CORRIDOR_HALF_WIDTH:
 			return false
 	return true
+
+
+func has_layered_far_horizon() -> bool:
+	var horizon := get_node_or_null(FAR_BANK_NAME) as Node3D
+	if horizon == null or horizon.get_child_count() < 3:
+		return false
+	return horizon.get_node_or_null(WATERSHED_MARKER_NAME) != null
 
 
 func _build_shoreline() -> void:
@@ -214,6 +226,36 @@ func _build_far_bank_dressing() -> void:
 		var z := sin(float(index) * 1.9) * 0.5
 		var scale := Vector3(0.65 + float(index % 2) * 0.22, 0.45 + float(index % 3) * 0.12, 0.6)
 		_add_rock(far_bank, "FarBankRock%02d" % index, Vector3(x, scale.y * 0.5, z), scale)
+
+
+func _build_far_horizon() -> void:
+	# The bank sits beyond the fishable water rather than making a reachable
+	# promise. Its staggered ridges preserve a cool, fog-softened lake horizon.
+	var horizon := Node3D.new()
+	horizon.name = FAR_BANK_NAME
+	horizon.position = FAR_HORIZON_POSITION
+	horizon.set_meta("interactive", false)
+	add_child(horizon)
+
+	_add_box(horizon, "DistantShore", Vector3(0.0, 1.0, 0.8), Vector3(FAR_HORIZON_WIDTH, 2.0, 1.6), Color("#253d3b"))
+	_add_box(horizon, "NearTreeLine", Vector3(-1.4, 2.25, -0.35), Vector3(FAR_HORIZON_WIDTH - 4.0, 1.25, 0.8), Color("#1c332f"))
+	_add_box(horizon, "HighRidge", Vector3(5.0, 3.15, 1.55), Vector3(15.0, 1.35, 0.7), Color("#304243"))
+	for index in 17:
+		var x := -12.5 + float(index) * 1.55
+		var height := 2.7 + float(index % 4) * 0.5
+		var tree := _add_cylinder(horizon, "FarTree%02d" % index, Vector3(x, height * 0.5, -0.95 + sin(float(index) * 1.7) * 0.22), 0.2 + float(index % 3) * 0.045, height, Color("#172d2c"))
+		tree.rotation.z = sin(float(index) * 0.8) * 0.055
+
+	# An old watershed survey marker is intentionally small and unlit: it reads
+	# as a question on the horizon, never as a destination or active objective.
+	var marker := Node3D.new()
+	marker.name = WATERSHED_MARKER_NAME
+	marker.position = Vector3(6.8, 3.85, -1.12)
+	marker.set_meta("interactive", false)
+	horizon.add_child(marker)
+	_add_cylinder(marker, "WeatheredMast", Vector3.ZERO, 0.075, 2.15, Color("#665f4c"))
+	_add_box(marker, "SurveyCrossbar", Vector3(0.0, 0.72, 0.0), Vector3(0.86, 0.07, 0.07), Color("#665f4c"))
+	_add_disc(marker, "MarkerCap", Vector3(0.0, 1.12, 0.0), 0.16, Color("#8b7c54"))
 
 
 func _add_bank_segment(node_name: String, position: Vector3, size: Vector3) -> void:
