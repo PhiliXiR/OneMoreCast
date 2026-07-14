@@ -15,6 +15,14 @@ const ROCK_GREY := Color("#3b4650")
 const WEATHERED_WOOD := Color("#51443a")
 const TACKLE_CANVAS := Color("#9b7441")
 const GALVANIZED_METAL := Color("#6d7a78")
+const BUOY_RED := Color("#9a493c")
+const BOAT_BLUE := Color("#405662")
+const OPEN_FISHING_CORRIDOR_HALF_WIDTH := 3.4
+const REED_ISLAND_NAME := "ReedIsland"
+const FALLEN_TIMBER_NAME := "FallenTimber"
+const ROWBOAT_NAME := "MooringRowboat"
+const WEST_BUOY_NAME := "MarkerBuoyWest"
+const EAST_BUOY_NAME := "MarkerBuoyEast"
 
 var _shore_collision_count := 0
 
@@ -23,6 +31,7 @@ func _ready() -> void:
 	_build_shoreline()
 	_build_cottage()
 	_build_dockside_foreground()
+	_build_open_water_landmarks()
 	_build_inlet_dressing()
 	_build_far_bank_dressing()
 
@@ -40,6 +49,19 @@ func has_clear_dock_approach() -> bool:
 	# the same unobstructed approach.
 	for detail in foreground.get_children():
 		if detail is Node3D and absf((detail as Node3D).position.x + 0.65) < 2.15:
+			return false
+	return true
+
+
+func has_open_fishable_water() -> bool:
+	var habitat := get_node_or_null("OpenWaterLandmarks") as Node3D
+	if habitat == null:
+		return false
+	# The player faces a broad central corridor while casting. Keep scenic forms
+	# beyond it so the cast target, terminal tackle, line, and nearby fish signs
+	# retain a quiet water backdrop.
+	for landmark in habitat.get_children():
+		if landmark is Node3D and absf((landmark as Node3D).position.x) < OPEN_FISHING_CORRIDOR_HALF_WIDTH:
 			return false
 	return true
 
@@ -97,6 +119,65 @@ func _build_dockside_foreground() -> void:
 		var z := -0.05 + float(index) * 0.5
 		var scale := Vector3(0.28 + float(index % 3) * 0.07, 0.15 + float(index % 2) * 0.05, 0.24)
 		_add_rock(foreground, "ShoreStone%02d" % index, Vector3(x, scale.y * 0.5, z), scale)
+
+
+func _build_open_water_landmarks() -> void:
+	# These landmarks establish a lived-in micro-habitat rhythm at the water's edges.
+	# They intentionally have no collision or interaction: fishable water remains
+	# open and the central casting corridor stays legible.
+	var habitat := Node3D.new()
+	habitat.name = "OpenWaterLandmarks"
+	habitat.set_meta("interactive", false)
+	add_child(habitat)
+
+	_add_reed_island(habitat, Vector3(-6.3, 0.0, 6.6))
+	_add_fallen_timber(habitat, Vector3(5.5, 0.08, 8.2))
+	_add_rowboat(habitat, Vector3(-5.2, 0.2, 13.0))
+	_add_marker_buoy(habitat, WEST_BUOY_NAME, Vector3(-6.8, 0.08, 11.0))
+	_add_marker_buoy(habitat, EAST_BUOY_NAME, Vector3(6.4, 0.08, 14.0))
+
+
+func _add_reed_island(parent: Node3D, position: Vector3) -> void:
+	var island := Node3D.new()
+	island.name = REED_ISLAND_NAME
+	island.position = position
+	parent.add_child(island)
+	_add_disc(island, "Muck", Vector3.ZERO, 1.18, Color("#314733")).scale.z = 0.7
+	for index in 9:
+		var angle := float(index) * 0.7
+		var radius := 0.25 + float(index % 3) * 0.24
+		var reed := _add_cylinder(island, "Reed%02d" % index, Vector3(cos(angle) * radius, 0.72, sin(angle) * radius * 0.68), 0.045, 1.35 + float(index % 2) * 0.22, REED_GREEN)
+		reed.rotation.z = sin(angle) * 0.1
+
+
+func _add_fallen_timber(parent: Node3D, position: Vector3) -> void:
+	var timber := Node3D.new()
+	timber.name = FALLEN_TIMBER_NAME
+	timber.position = position
+	timber.rotation.y = -0.48
+	parent.add_child(timber)
+	_add_cylinder(timber, "Log", Vector3.ZERO, 0.18, 2.7, WEATHERED_WOOD).rotation.z = PI * 0.5
+	_add_cylinder(timber, "BrokenBranch", Vector3(0.55, 0.2, 0.0), 0.06, 0.85, WEATHERED_WOOD).rotation.z = PI * 0.88
+
+
+func _add_rowboat(parent: Node3D, position: Vector3) -> void:
+	var boat := Node3D.new()
+	boat.name = ROWBOAT_NAME
+	boat.position = position
+	boat.rotation.y = 0.42
+	parent.add_child(boat)
+	_add_box(boat, "Hull", Vector3.ZERO, Vector3(1.65, 0.28, 0.62), BOAT_BLUE)
+	_add_box(boat, "Seat", Vector3(0.0, 0.2, 0.0), Vector3(0.18, 0.09, 0.72), WEATHERED_WOOD)
+	_add_box(boat, "Oar", Vector3(0.15, 0.24, 0.52), Vector3(1.85, 0.045, 0.06), WEATHERED_WOOD, Vector3(0.0, 0.3, 0.0))
+
+
+func _add_marker_buoy(parent: Node3D, node_name: String, position: Vector3) -> void:
+	var buoy := Node3D.new()
+	buoy.name = node_name
+	buoy.position = position
+	parent.add_child(buoy)
+	_add_cylinder(buoy, "Float", Vector3(0.0, 0.18, 0.0), 0.16, 0.36, BUOY_RED)
+	_add_cylinder(buoy, "Mast", Vector3(0.0, 0.5, 0.0), 0.035, 0.42, GALVANIZED_METAL)
 
 
 func _add_rope_coil(parent: Node3D, node_name: String, position: Vector3) -> void:
