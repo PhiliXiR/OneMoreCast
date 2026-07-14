@@ -7,6 +7,7 @@ extends Node3D
 
 @export var shore_line_z := 2.05
 @export var dock_approach_half_width := 1.7
+@export var reduced_motion := false
 
 const WARM_WINDOW := Color("#ffbd70")
 const SHORE_GREEN := Color("#315333")
@@ -27,11 +28,18 @@ const FAR_BANK_NAME := "FarBankSilhouette"
 const WATERSHED_MARKER_NAME := "WatershedSurveyMarker"
 const FAR_HORIZON_POSITION := Vector3(0.0, 0.0, 31.0)
 const FAR_HORIZON_WIDTH := 28.0
+const ENVIRONMENTAL_LIFE_NAME := "EnvironmentalLife"
+const REDUCED_MOTION_SETTING := "accessibility/reduce_motion"
 
 var _shore_collision_count := 0
+var _environment_elapsed := 0.0
+var _swaying_reeds: Array[MeshInstance3D] = []
+var _smoke_puffs: Array[MeshInstance3D] = []
+var _bird_silhouettes: Array[Node3D] = []
 
 
 func _ready() -> void:
+	reduced_motion = reduced_motion or bool(ProjectSettings.get_setting(REDUCED_MOTION_SETTING, false))
 	_build_shoreline()
 	_build_cottage()
 	_build_dockside_foreground()
@@ -39,6 +47,29 @@ func _ready() -> void:
 	_build_inlet_dressing()
 	_build_far_bank_dressing()
 	_build_far_horizon()
+	_build_environmental_life()
+
+
+func _process(delta: float) -> void:
+	if reduced_motion:
+		return
+	_environment_elapsed += delta
+	_animate_environmental_life()
+
+
+func set_reduced_motion(enabled: bool) -> void:
+	reduced_motion = enabled
+	if enabled:
+		_reset_environmental_life()
+
+
+func has_quiet_environmental_life() -> bool:
+	var life := get_node_or_null(ENVIRONMENTAL_LIFE_NAME) as Node3D
+	return life != null and _swaying_reeds.size() >= 8 and _smoke_puffs.size() >= 3 and _bird_silhouettes.size() >= 3
+
+
+func is_environmental_motion_active() -> bool:
+	return not reduced_motion and _environment_elapsed > 0.0
 
 
 func has_natural_shore_collision() -> bool:
@@ -160,6 +191,7 @@ func _add_reed_island(parent: Node3D, position: Vector3) -> void:
 		var radius := 0.25 + float(index % 3) * 0.24
 		var reed := _add_cylinder(island, "Reed%02d" % index, Vector3(cos(angle) * radius, 0.72, sin(angle) * radius * 0.68), 0.045, 1.35 + float(index % 2) * 0.22, REED_GREEN)
 		reed.rotation.z = sin(angle) * 0.1
+		_register_swaying_reed(reed, 0.045 + float(index % 3) * 0.012, angle)
 
 
 func _add_fallen_timber(parent: Node3D, position: Vector3) -> void:
@@ -212,6 +244,7 @@ func _build_inlet_dressing() -> void:
 		var radius := 0.65 + float(index % 3) * 0.28
 		var reed := _add_cylinder(inlet, "InletReed%02d" % index, Vector3(cos(angle) * radius, 0.8, sin(angle) * radius), 0.065, 1.6 + float(index % 2) * 0.22, REED_GREEN)
 		reed.rotation.z = sin(angle * 1.7) * 0.08
+		_register_swaying_reed(reed, 0.04 + float(index % 3) * 0.01, angle * 1.7)
 	for index in 5:
 		_add_disc(inlet, "InletLily%02d" % index, Vector3(-0.5 + float(index) * 0.38, 0.035, 1.0 + sin(float(index)) * 0.3), 0.25, Color("#234c2b"))
 
@@ -256,6 +289,69 @@ func _build_far_horizon() -> void:
 	_add_cylinder(marker, "WeatheredMast", Vector3.ZERO, 0.075, 2.15, Color("#665f4c"))
 	_add_box(marker, "SurveyCrossbar", Vector3(0.0, 0.72, 0.0), Vector3(0.86, 0.07, 0.07), Color("#665f4c"))
 	_add_disc(marker, "MarkerCap", Vector3(0.0, 1.12, 0.0), 0.16, Color("#8b7c54"))
+
+
+func _build_environmental_life() -> void:
+	# These cues make the lake feel inhabited, but remain distant, slow, and
+	# wholly decorative. Fishing reactions continue to come from LakeSurface.
+	var life := Node3D.new()
+	life.name = ENVIRONMENTAL_LIFE_NAME
+	life.set_meta("interactive", false)
+	add_child(life)
+
+	var smoke := Node3D.new()
+	smoke.name = "CottageSmoke"
+	smoke.position = Vector3(5.9, 3.35, -5.7)
+	life.add_child(smoke)
+	for index in 3:
+		var puff := _add_disc(smoke, "SmokePuff%02d" % index, Vector3(0.08 * float(index), 0.35 + float(index) * 0.32, 0.0), 0.17 + float(index) * 0.055, Color("#9aa1a0"))
+		puff.scale.z = 0.72
+		puff.set_meta("life_origin", puff.position)
+		_smoke_puffs.append(puff)
+
+	var birds := Node3D.new()
+	birds.name = "BirdSilhouettes"
+	birds.position = Vector3(-4.0, 5.9, 25.0)
+	life.add_child(birds)
+	for index in 3:
+		var bird := Node3D.new()
+		bird.name = "Bird%02d" % index
+		bird.position = Vector3(float(index) * 1.25, sin(float(index)) * 0.24, float(index) * 0.18)
+		bird.set_meta("life_origin", bird.position)
+		_add_box(bird, "WingLeft", Vector3(-0.16, 0.0, 0.0), Vector3(0.28, 0.025, 0.06), Color("#202b31"), Vector3(0.0, 0.0, -0.28))
+		_add_box(bird, "WingRight", Vector3(0.16, 0.0, 0.0), Vector3(0.28, 0.025, 0.06), Color("#202b31"), Vector3(0.0, 0.0, 0.28))
+		birds.add_child(bird)
+		_bird_silhouettes.append(bird)
+
+
+func _register_swaying_reed(reed: MeshInstance3D, amplitude: float, phase: float) -> void:
+	reed.set_meta("sway_origin", reed.rotation.z)
+	reed.set_meta("sway_amplitude", amplitude)
+	reed.set_meta("sway_phase", phase)
+	_swaying_reeds.append(reed)
+
+
+func _animate_environmental_life() -> void:
+	for reed in _swaying_reeds:
+		reed.rotation.z = float(reed.get_meta("sway_origin")) + sin(_environment_elapsed * 0.52 + float(reed.get_meta("sway_phase"))) * float(reed.get_meta("sway_amplitude"))
+	for index in _smoke_puffs.size():
+		var puff := _smoke_puffs[index]
+		var origin := puff.get_meta("life_origin") as Vector3
+		var drift := fmod(_environment_elapsed * 0.055 + float(index) * 0.27, 0.34)
+		puff.position = origin + Vector3(drift, drift * 1.4, 0.0)
+	for index in _bird_silhouettes.size():
+		var bird := _bird_silhouettes[index]
+		var origin := bird.get_meta("life_origin") as Vector3
+		bird.position = origin + Vector3(sin(_environment_elapsed * 0.2 + float(index)) * 0.34, sin(_environment_elapsed * 0.45 + float(index)) * 0.06, 0.0)
+
+
+func _reset_environmental_life() -> void:
+	for reed in _swaying_reeds:
+		reed.rotation.z = float(reed.get_meta("sway_origin"))
+	for puff in _smoke_puffs:
+		puff.position = puff.get_meta("life_origin") as Vector3
+	for bird in _bird_silhouettes:
+		bird.position = bird.get_meta("life_origin") as Vector3
 
 
 func _add_bank_segment(node_name: String, position: Vector3, size: Vector3) -> void:

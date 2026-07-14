@@ -18,6 +18,10 @@ config/name="One More Cast"
 run/main_scene="res://scenes/app/AppRoot.tscn"
 config/features=PackedStringArray("4.7")
 
+[accessibility]
+
+reduce_motion=false
+
 [autoload]
 
 AppQuitHandler="*res://tools/3DCodexPipeline/game/autoload/app_quit_handler.gd"
