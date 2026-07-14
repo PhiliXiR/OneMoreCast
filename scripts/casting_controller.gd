@@ -135,6 +135,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if (state == CastState.WAITING or state == CastState.BITE or state == CastState.REELING) and _provider_bool("is_active_tackle_out_of_range", false):
+		_resolve_tackle_out_of_range()
 	if state == CastState.REELING and fight_model != null:
 		fight_snapshot = fight_model.advance(delta, reel_held)
 		_present_fight()
@@ -292,6 +294,8 @@ func _run_cast_sequence() -> void:
 	state = CastState.WAITING
 	_update_view("The line settles. Watch the water and keep the rod ready.")
 	await get_tree().create_timer(_provider_float("get_waiting_for_bite_duration", 0.85)).timeout
+	if state != CastState.WAITING:
+		return
 	if _provider_bool("trigger_bite_feedback", false):
 		_play_bite_cue()
 	hook_set = false
@@ -301,6 +305,8 @@ func _run_cast_sequence() -> void:
 	cast_button.text = "Set Hook"
 	_update_view("A sharp twitch snaps through the line. Set the hook!")
 	await get_tree().create_timer(0.75).timeout
+	if state != CastState.BITE:
+		return
 	bite_window_open = false
 	if not hook_set:
 		await _finish_simple_result("missed bite", "The twitch slips away before you set the hook.")
@@ -308,6 +314,8 @@ func _run_cast_sequence() -> void:
 	_begin_fight()
 	while state == CastState.REELING and int(fight_snapshot.get("outcome", 0)) == FishFightModel.Outcome.ONGOING:
 		await get_tree().process_frame
+	if state != CastState.REELING:
+		return
 	reel_held = false
 	if int(fight_snapshot.get("outcome", 0)) == FishFightModel.Outcome.LANDED:
 		await _finish_landed_fish()
@@ -406,18 +414,31 @@ func _finish_landed_fish() -> void:
 	_present_landed_outcome(fish)
 
 
-func _finish_fight_loss(outcome: int) -> void:
+func _finish_fight_loss(outcome: int, moved_out_of_range := false) -> void:
 	state = CastState.RESULT
 	_hide_fight_hud()
 	_fight_tutorial_complete = true
 	var broke := outcome == FishFightModel.Outcome.LINE_BREAK
 	var cause := "line break" if broke else "thrown hook"
-	record_observation(cause, "Lost the hooked Dock Bluegill after %s." % ("reeling through a surge" if broke else "allowing line slack during recovery"), "Yield sooner during a surge to protect line tension." if broke else "Reel during recovery to prevent line slack.")
+	var detail := "Lost the hooked Dock Bluegill after reeling through a surge." if broke else ("Lost the hooked Dock Bluegill after moving beyond the usable line range." if moved_out_of_range else "Lost the hooked Dock Bluegill after allowing line slack during recovery.")
+	var lesson := "Yield sooner during a surge to protect line tension." if broke else ("Stay within line range while fighting a hooked fish." if moved_out_of_range else "Reel during recovery to prevent line slack.")
+	record_observation(cause, detail, lesson)
 	result_label.text = "Latest result: %s" % cause
 	quality_label.text = _context()
-	_update_view(("The line breaks. Yield sooner during a surge." if broke else "The fish throws the hook. Reel during recovery."))
+	_update_view("The line breaks. Yield sooner during a surge." if broke else ("The fish throws the hook after you move too far from the tackle." if moved_out_of_range else "The fish throws the hook. Reel during recovery."))
 	_provider_call("end_fight_presentation")
 	_present_loss_outcome(cause, String(field_journal.latest().get("lesson", "")))
+
+
+func _resolve_tackle_out_of_range() -> void:
+	if state == CastState.REELING:
+		reel_held = false
+		_finish_fight_loss(FishFightModel.Outcome.THROWN_HOOK, true)
+	else:
+		_provider_call("retrieve_active_tackle")
+		bite_window_open = false
+		hook_set = false
+		_set_ready_for_cast("You move beyond the line range, so you retrieve the tackle.")
 
 
 func _finish_simple_result(label: String, message: String) -> void:

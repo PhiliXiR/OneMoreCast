@@ -23,6 +23,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @export var water_size := Vector2(28.0, 16.0)
 @export var cast_distance := 8.0
 @export var near_water_distance := 5.0
+@export var active_line_range := 60.0
 @export var sweet_spot := Vector3(0.0, 0.0, 10.0)
 @export var sweet_spot_radius := 6.0
 
@@ -485,9 +486,37 @@ func present_landed_fish() -> void:
 
 
 func end_fight_presentation() -> void:
+	_clear_active_tackle()
+
+
+func retrieve_active_tackle() -> void:
+	_clear_active_tackle()
+
+
+func is_active_tackle_out_of_range() -> bool:
+	if player == null or not is_cast_landed() or active_line_range <= 0.0:
+		return false
+	var player_position := player.global_position
+	var tackle_position := get_line_endpoint()
+	player_position.y = 0.0
+	tackle_position.y = 0.0
+	return player_position.distance_to(tackle_position) > active_line_range
+
+
+func _clear_active_tackle() -> void:
 	_clear_fight_water_reaction()
+	_stop_bite_feedback(true)
 	_stop_reel_feedback()
 	_set_terminal_tackle_visible(false)
+	_phase = CastPhase.AIMING
+	_landed_elapsed = 0.0
+	_set_line_points([], false)
+	if line_endpoint != null:
+		line_endpoint.visible = false
+	if fishing_line != null:
+		fishing_line.visible = false
+	if line_overlay != null:
+		line_overlay.visible = false
 	if hooked_fish_marker != null:
 		hooked_fish_marker.visible = false
 	_set_fish_silhouette(false)
