@@ -12,6 +12,9 @@ const WARM_WINDOW := Color("#ffbd70")
 const SHORE_GREEN := Color("#315333")
 const REED_GREEN := Color("#294d29")
 const ROCK_GREY := Color("#3b4650")
+const WEATHERED_WOOD := Color("#51443a")
+const TACKLE_CANVAS := Color("#9b7441")
+const GALVANIZED_METAL := Color("#6d7a78")
 
 var _shore_collision_count := 0
 
@@ -19,12 +22,26 @@ var _shore_collision_count := 0
 func _ready() -> void:
 	_build_shoreline()
 	_build_cottage()
+	_build_dockside_foreground()
 	_build_inlet_dressing()
 	_build_far_bank_dressing()
 
 
 func has_natural_shore_collision() -> bool:
 	return _shore_collision_count >= 4
+
+
+func has_clear_dock_approach() -> bool:
+	var foreground := get_node_or_null("DocksideForeground") as Node3D
+	if foreground == null:
+		return false
+	# The player-to-dock lane is centered on x = -0.65. Foreground props stay
+	# beyond this generous lane and are visual only, so walking and casting keep
+	# the same unobstructed approach.
+	for detail in foreground.get_children():
+		if detail is Node3D and absf((detail as Node3D).position.x + 0.65) < 2.15:
+			return false
+	return true
 
 
 func _build_shoreline() -> void:
@@ -51,6 +68,45 @@ func _build_cottage() -> void:
 	_add_window(cottage, "WarmWindowOne", Vector3(-1.73, 1.55, 0.35))
 	_add_window(cottage, "WarmWindowTwo", Vector3(-1.73, 1.55, -0.65))
 	_add_static_collision(cottage, "CottageCollision", Vector3(0, 1.35, 0), Vector3(3.4, 2.7, 2.6))
+
+
+func _build_dockside_foreground() -> void:
+	# These are deliberate, game-owned signs of an ordinary fishing morning.
+	# They remain outside the dock approach and have no collision or interaction.
+	var foreground := Node3D.new()
+	foreground.name = "DocksideForeground"
+	foreground.set_meta("interactive", false)
+	add_child(foreground)
+
+	_add_cylinder(foreground, "MooringPost", Vector3(-3.35, 0.58, 1.25), 0.15, 1.16, WEATHERED_WOOD)
+	_add_cylinder(foreground, "MooringCap", Vector3(-3.35, 1.18, 1.25), 0.2, 0.1, GALVANIZED_METAL)
+	_add_box(foreground, "TackleCrate", Vector3(3.05, 0.3, -0.3), Vector3(0.82, 0.6, 0.6), TACKLE_CANVAS, Vector3(0.0, 0.22, 0.0))
+	_add_cylinder(foreground, "Bucket", Vector3(3.72, 0.27, 0.22), 0.22, 0.5, GALVANIZED_METAL)
+	_add_box(foreground, "LandingNetHandle", Vector3(3.4, 0.34, 1.28), Vector3(0.08, 0.08, 1.2), WEATHERED_WOOD, Vector3(0.0, 0.62, 0.0))
+	_add_disc(foreground, "LandingNet", Vector3(3.75, 0.08, 1.75), 0.4, Color("#48625a"))
+	_add_rope_coil(foreground, "RopeCoil", Vector3(-3.55, 0.04, 0.55))
+	for index in 9:
+		var side := -1.0 if index % 2 == 0 else 1.0
+		var x := side * (3.1 + float(index % 3) * 0.42)
+		var z := -0.15 + float(index) * 0.42
+		var grass := _add_cylinder(foreground, "ShoreGrass%02d" % index, Vector3(x, 0.38, z), 0.045, 0.76 + float(index % 2) * 0.18, SHORE_GREEN)
+		grass.rotation.z = side * 0.14
+	for index in 7:
+		var side := -1.0 if index % 2 == 0 else 1.0
+		var x := side * (3.45 + float(index % 2) * 0.36)
+		var z := -0.05 + float(index) * 0.5
+		var scale := Vector3(0.28 + float(index % 3) * 0.07, 0.15 + float(index % 2) * 0.05, 0.24)
+		_add_rock(foreground, "ShoreStone%02d" % index, Vector3(x, scale.y * 0.5, z), scale)
+
+
+func _add_rope_coil(parent: Node3D, node_name: String, position: Vector3) -> void:
+	var coil := Node3D.new()
+	coil.name = node_name
+	coil.position = position
+	parent.add_child(coil)
+	for index in 3:
+		var ring := _add_disc(coil, "Loop%02d" % index, Vector3(0.06 * float(index), 0.016 * float(index), 0), 0.32 - float(index) * 0.065, Color("#b8996b"))
+		ring.scale.z = 0.58
 
 
 func _build_inlet_dressing() -> void:
@@ -123,7 +179,7 @@ func _add_cylinder(parent: Node3D, node_name: String, position: Vector3, radius:
 	return instance
 
 
-func _add_disc(parent: Node3D, node_name: String, position: Vector3, radius: float, color: Color) -> void:
+func _add_disc(parent: Node3D, node_name: String, position: Vector3, radius: float, color: Color) -> MeshInstance3D:
 	var mesh := CylinderMesh.new()
 	mesh.top_radius = radius
 	mesh.bottom_radius = radius
@@ -134,6 +190,7 @@ func _add_disc(parent: Node3D, node_name: String, position: Vector3, radius: flo
 	instance.mesh = mesh
 	instance.material_override = _material(color)
 	parent.add_child(instance)
+	return instance
 
 
 func _add_rock(parent: Node3D, node_name: String, position: Vector3, scale: Vector3) -> void:
