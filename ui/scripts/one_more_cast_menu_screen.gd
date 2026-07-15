@@ -2,6 +2,8 @@ extends Control
 
 signal action_requested(action: String)
 
+const UITheme = preload("res://ui/scripts/one_more_cast_theme.gd")
+
 const LABELS := {
 	"start": "Start Fishing",
 	"level_select": "Fishing Spots",
@@ -48,44 +50,18 @@ func configure(new_title: String, new_actions: PackedStringArray) -> void:
 
 
 func _build_styles() -> void:
-	_panel_style.bg_color = Color(0.055, 0.075, 0.07, 0.92)
-	_panel_style.border_color = Color(0.52, 0.74, 0.64, 0.75)
-	_panel_style.border_width_left = 2
-	_panel_style.border_width_top = 2
-	_panel_style.border_width_right = 2
-	_panel_style.border_width_bottom = 2
-	_panel_style.corner_radius_top_left = 8
-	_panel_style.corner_radius_top_right = 8
-	_panel_style.corner_radius_bottom_left = 8
-	_panel_style.corner_radius_bottom_right = 8
-	_panel_style.content_margin_left = 28
-	_panel_style.content_margin_top = 24
-	_panel_style.content_margin_right = 28
-	_panel_style.content_margin_bottom = 28
+	_panel_style = UITheme.paper_panel()
+	_button_style = UITheme.action_button(UITheme.PAPER_SHADOW, Color(UITheme.INK.r, UITheme.INK.g, UITheme.INK.b, 0.32))
+	_button_hover_style = UITheme.action_button(UITheme.PAPER_SHADOW.lightened(0.11), UITheme.BRASS)
+	_button_pressed_style = UITheme.action_button(UITheme.PAPER_SHADOW.darkened(0.16), UITheme.INK)
 
-	_button_style.bg_color = Color(0.14, 0.22, 0.19, 0.96)
-	_button_style.border_color = Color(0.38, 0.55, 0.48, 0.72)
-	_button_style.border_width_left = 1
-	_button_style.border_width_top = 1
-	_button_style.border_width_right = 1
-	_button_style.border_width_bottom = 1
-	_button_style.corner_radius_top_left = 5
-	_button_style.corner_radius_top_right = 5
-	_button_style.corner_radius_bottom_left = 5
-	_button_style.corner_radius_bottom_right = 5
+	_title_settings.font = UITheme.DISPLAY_FONT
+	_title_settings.font_size = 42
+	_title_settings.font_color = UITheme.INK
 
-	_button_hover_style = _button_style.duplicate() as StyleBoxFlat
-	_button_hover_style.bg_color = Color(0.22, 0.35, 0.29, 0.98)
-	_button_hover_style.border_color = Color(0.75, 0.93, 0.78, 0.9)
-
-	_button_pressed_style = _button_style.duplicate() as StyleBoxFlat
-	_button_pressed_style.bg_color = Color(0.08, 0.14, 0.13, 1.0)
-
-	_title_settings.font_size = 32
-	_title_settings.font_color = Color(0.92, 0.98, 0.9, 1.0)
-
+	_caption_settings.font = UITheme.BODY_FONT
 	_caption_settings.font_size = 14
-	_caption_settings.font_color = Color(0.67, 0.82, 0.75, 1.0)
+	_caption_settings.font_color = UITheme.QUIET_INK
 
 
 func _build() -> void:
@@ -98,7 +74,7 @@ func _build() -> void:
 	var backdrop := ColorRect.new()
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	backdrop.color = Color(0.02, 0.032, 0.035, 0.64)
+	backdrop.color = Color(UITheme.LAKE_INK_DEEP.r, UITheme.LAKE_INK_DEEP.g, UITheme.LAKE_INK_DEEP.b, 0.66)
 	add_child(backdrop)
 
 	var center := CenterContainer.new()
@@ -139,6 +115,9 @@ func _build() -> void:
 		button.add_theme_stylebox_override("normal", _button_style)
 		button.add_theme_stylebox_override("hover", _button_hover_style)
 		button.add_theme_stylebox_override("pressed", _button_pressed_style)
+		button.add_theme_font_override("font", UITheme.BODY_FONT)
+		button.add_theme_font_size_override("font_size", 17)
+		button.add_theme_color_override("font_color", UITheme.INK)
 		button.pressed.connect(func() -> void:
 			action_requested.emit(action)
 		)

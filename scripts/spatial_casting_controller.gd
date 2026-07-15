@@ -18,9 +18,10 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @export var line_overlay_path: NodePath
 @export var landing_feedback_path: NodePath
 @export var lake_surface_path: NodePath
+@export var water_lens_path: NodePath
 @export var home_water_provider_path: NodePath
-@export var water_center := Vector3(0.0, 0.0, 10.0)
-@export var water_size := Vector2(28.0, 16.0)
+@export var water_center := Vector3(0.0, 0.0, 402.0)
+@export var water_size := Vector2(120.0, 800.0)
 @export var cast_distance := 8.0
 @export var near_water_distance := 5.0
 @export var active_line_range := 60.0
@@ -41,6 +42,7 @@ enum CastPhase { AIMING, CASTING, LANDED_SLACK, LANDED_TAUT }
 @onready var line_overlay: Line2D = get_node_or_null(line_overlay_path) as Line2D
 @onready var landing_feedback: Node3D = get_node_or_null(landing_feedback_path) as Node3D
 @onready var lake_surface: Node = get_node_or_null(lake_surface_path)
+@onready var water_lens: Node = get_node_or_null(water_lens_path)
 @onready var home_water_provider: Node = get_node_or_null(home_water_provider_path)
 
 var target_point := Vector3.ZERO
@@ -395,6 +397,8 @@ func begin_reel_feedback(duration := 1.2) -> bool:
 		hooked_fish_mouth_marker.visible = true
 		hooked_fish_mouth_marker.global_position = _reel_start
 	_update_reel_feedback(0.0)
+	if water_lens != null and water_lens.has_method("begin_fight"):
+		water_lens.call("begin_fight")
 	return true
 
 
@@ -416,6 +420,8 @@ func apply_fight_snapshot(snapshot: Dictionary, reel_held: bool) -> void:
 		_reel_feedback_elapsed = _fight_landing_progress * _reel_feedback_duration
 		_update_reel_feedback(0.0)
 	_request_fight_water_reaction(float(snapshot.get("tension", 0.48)))
+	if water_lens != null and water_lens.has_method("apply_fight_snapshot"):
+		water_lens.call("apply_fight_snapshot", snapshot)
 
 
 func _get_fight_line_width() -> float:
@@ -483,10 +489,18 @@ func present_landed_fish() -> void:
 		hooked_fish_mouth_marker.visible = true
 		hooked_fish_mouth_marker.global_position = position
 	_request_landing_water_reaction()
+	if water_lens != null and water_lens.has_method("present_landed_fish"):
+		water_lens.call("present_landed_fish")
 
 
 func end_fight_presentation() -> void:
+	close_water_lens()
 	_clear_active_tackle()
+
+
+func close_water_lens() -> void:
+	if water_lens != null and water_lens.has_method("end_fight"):
+		water_lens.call("end_fight")
 
 
 func retrieve_active_tackle() -> void:

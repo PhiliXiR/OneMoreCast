@@ -5,6 +5,34 @@ approachable player decisions.
 
 ## Product Shape
 
+**Weathered field journal**:
+The visual language of One More Cast: warm paper and ink surfaces, deep lake-blue accents, and muted moss and brass signals that make fishing knowledge feel collected and lived-in.
+_Avoid_: Arcade HUD, coastal utilitarian, storybook UI
+
+**Field-journal typography**:
+The reading system pairing Cormorant Garamond for discovery-facing titles and Atkinson Hyperlegible for live fishing information and controls.
+_Avoid_: Default UI font, single-font treatment
+
+**Fishing homes**:
+The three stable places for fishing information: a field card for outing context, an action strip for the immediate decision, and a notebook drawer for deeper records.
+_Avoid_: Monolithic HUD, permanently expanded notebook
+
+**Fishing palette**:
+The semantic color language of the fishing interface: lake ink for quiet structure, paper warmth for records, moss for confirmation, brass for attention, and rowan red for danger.
+_Avoid_: Decorative rainbow palette, universal glow, danger-colored confirmation
+
+**Light physicality**:
+The interface's restrained material character: field-note cards, dock tags, and subtle paper-and-ink cues that suggest a lived-in fishing practice without becoming a literal desk simulation.
+_Avoid_: Flat generic overlay, skeuomorphic desk
+
+**Causal micro-feedback**:
+Brief, state-linked interface motion that confirms a fishing action or observation without competing with water-reading; it includes an equivalent reduced-motion presentation.
+_Avoid_: Ambient UI motion, decorative screen shake, looping celebration
+
+**Field-record reveal**:
+The quiet catch or loss presentation that records an encounter while keeping its fish and water context present, rather than converting it into a generic reward screen.
+_Avoid_: Loot pop-up, detached inventory reward
+
 **Compact foundation**:
 The first complete, release-sized game area: a dense, self-contained fishing
 RPG experience that is satisfying on its own and establishes systems and
@@ -126,6 +154,17 @@ _Avoid_: Reel progress, catch progress
 A fish physically attached to the hook and still capable of escaping during the
 fight.
 _Avoid_: Catch, caught fish
+
+**Water lens**:
+A picture-in-picture cinematic view that follows the hooked fish during a fish
+fight while the player's fishing controls remain visible and usable.
+_Avoid_: Cinematic camera, fish cam, cutaway
+
+**Shot policy**:
+The authored mapping from a fish-fight change to the water-lens shot that
+frames it; it preserves the hooked fish, its travel direction, and the active
+fishing decision.
+_Avoid_: Cutscene timeline, camera script
 
 **Fish presence**:
 The likelihood and character of fish activity in fishable water before a fish

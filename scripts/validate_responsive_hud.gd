@@ -34,11 +34,13 @@ func _validate_viewport(viewport_size: Vector2i) -> void:
 		_fail("Active fishing prompt or control leaves its panel at %s" % viewport_size)
 		return
 	if viewport_size == Vector2i(1920, 1080):
-		if drawer_toggle.visible or not log_panel.visible or not home_panel.visible:
-			_fail("Desktop must keep journal and community controls reachable without the drawer")
+		if not drawer_toggle.visible or not _inside_viewport(drawer_toggle, viewport_size) or log_panel.visible or home_panel.visible:
+			_fail("Desktop must keep secondary information in a closed, reachable notebook drawer")
 			return
-		if _overlaps(action_panel, log_panel) or _overlaps(action_panel, home_panel) or _overlaps(log_panel, home_panel):
-			_fail("Desktop HUD panels overlap")
+		drawer_toggle.pressed.emit()
+		await process_frame
+		if not log_panel.visible or home_panel.visible or _overlaps(action_panel, log_panel):
+			_fail("Desktop journal drawer must not overlap the immediate fishing action")
 			return
 	else:
 		if not drawer_toggle.visible or not _inside_viewport(drawer_toggle, viewport_size) or _overlaps(action_panel, drawer_toggle) or log_panel.visible or home_panel.visible:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=38 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://assets/fish/dock_bluegill.glb" id="7_bluegill"]
 [ext_resource type="Script" path="res://world/home_water_provider.gd" id="8_home_water"]
 [ext_resource type="Script" path="res://world/home_water_presentation.gd" id="9_home_water_presentation"]
+[ext_resource type="Script" path="res://scripts/cinematic_water_lens.gd" id="10_water_lens"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_dawn"]
 sky_top_color = Color(0.18, 0.28, 0.46, 1)
@@ -37,10 +38,10 @@ fog_density = 0.002
 fog_sky_affect = 0.7
 
 [sub_resource type="BoxMesh" id="BoxMesh_ground"]
-size = Vector3(24, 0.2, 11)
+size = Vector3(120, 0.2, 160)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
-size = Vector3(24, 0.2, 11)
+size = Vector3(120, 0.2, 160)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
 albedo_color = Color(0.38, 0.58, 0.34, 1)
@@ -70,7 +71,7 @@ albedo_color = Color(0.19, 0.22, 0.23, 1)
 roughness = 0.95
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_water_zone"]
-size = Vector3(28, 1, 16)
+size = Vector3(120, 1, 800)
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_target"]
 top_radius = 0.34
@@ -130,15 +131,34 @@ fov = 70.0
 near = 0.05
 far = 4000.0
 
+[node name="CinematicWaterLens" type="Node3D" parent="."]
+script = ExtResource("10_water_lens")
+hooked_fish_path = NodePath("../HookedFishMarker")
+hook_path = NodePath("../HookMarker")
+water_lens_panel_path = NodePath("../CastingUILayer/CastingUI/WaterLens")
+water_lens_texture_path = NodePath("../CastingUILayer/CastingUI/WaterLens/Texture")
+water_lens_caption_path = NodePath("../CastingUILayer/CastingUI/WaterLens/Caption")
+water_level = 0.0
+
+[node name="SubViewport" type="SubViewport" parent="CinematicWaterLens"]
+transparent_bg = false
+size = Vector2i(640, 396)
+render_target_update_mode = 4
+
+[node name="Camera3D" type="Camera3D" parent="CinematicWaterLens/SubViewport"]
+fov = 54.0
+near = 0.03
+far = 4000.0
+
 [node name="Ground" type="StaticBody3D" parent="."]
 rotation = Vector3(0.08, 0, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
-position = Vector3(0, -0.1, -3.5)
+position = Vector3(0, -0.1, -78)
 shape = SubResource("BoxShape3D_ground")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
-position = Vector3(0, -0.1, -3.5)
+position = Vector3(0, -0.1, -78)
 mesh = SubResource("BoxMesh_ground")
 surface_material_override/0 = SubResource("StandardMaterial3D_ground")
 
@@ -147,7 +167,7 @@ position = Vector3(-0.65, 0.14, 5.2)
 rotation = Vector3(0, 1.5708, 0)
 
 [node name="LakeSurface" parent="." instance=ExtResource("6_lake_surface")]
-position = Vector3(0, -0.02, 10)
+position = Vector3(0, -0.02, 402)
 
 [node name="HomeWater" type="Node3D" parent="."]
 script = ExtResource("8_home_water")
@@ -211,7 +231,7 @@ mesh = SubResource("SphereMesh_far_bank_rock")
 material_override = SubResource("StandardMaterial3D_far_bank_rock")
 
 [node name="WaterZone" type="Area3D" parent="."]
-position = Vector3(0, 0.35, 10)
+position = Vector3(0, 0.35, 402)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="WaterZone"]
 shape = SubResource("BoxShape3D_water_zone")
@@ -312,7 +332,10 @@ fishing_line_path = NodePath("../FishingLine")
 line_overlay_path = NodePath("../LineOverlayLayer/FishingLineOverlay")
 landing_feedback_path = NodePath("../LandingFeedback")
 lake_surface_path = NodePath("../LakeSurface")
+water_lens_path = NodePath("../CinematicWaterLens")
 home_water_provider_path = NodePath("../HomeWater")
+water_center = Vector3(0, 0, 402)
+water_size = Vector2(120, 800)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 7, -3)

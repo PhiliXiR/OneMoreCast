@@ -27,7 +27,7 @@ const EAST_BUOY_NAME := "MarkerBuoyEast"
 const FAR_BANK_NAME := "FarBankSilhouette"
 const WATERSHED_MARKER_NAME := "WatershedSurveyMarker"
 const FAR_HORIZON_POSITION := Vector3(0.0, 0.0, 31.0)
-const FAR_HORIZON_WIDTH := 28.0
+const FAR_HORIZON_WIDTH := 180.0
 const ENVIRONMENTAL_LIFE_NAME := "EnvironmentalLife"
 const REDUCED_MOTION_SETTING := "accessibility/reduce_motion"
 
@@ -112,13 +112,13 @@ func has_layered_far_horizon() -> bool:
 func _build_shoreline() -> void:
 	# A continuous bank, interrupted only at the dock approach, prevents an
 	# unexplained walk into the lake while leaving all fishable water open.
-	var shore_half_width := 12.0
+	var shore_half_width := 60.0
 	var bank_width := shore_half_width - dock_approach_half_width
 	var bank_center := (shore_half_width + dock_approach_half_width) * 0.5
 	_add_bank_segment("WestShoreBank", Vector3(-bank_center, 0.38, shore_line_z), Vector3(bank_width, 0.75, 0.8))
 	_add_bank_segment("EastShoreBank", Vector3(bank_center, 0.38, shore_line_z), Vector3(bank_width, 0.75, 0.8))
-	_add_bank_segment("WestBoundary", Vector3(-11.7, 0.7, -3.2), Vector3(0.65, 1.4, 10.4))
-	_add_bank_segment("EastBoundary", Vector3(11.7, 0.7, -3.2), Vector3(0.65, 1.4, 10.4))
+	_add_bank_segment("WestBoundary", Vector3(-59.7, 0.7, -78.0), Vector3(0.65, 1.4, 160.0))
+	_add_bank_segment("EastBoundary", Vector3(59.7, 0.7, -78.0), Vector3(0.65, 1.4, 160.0))
 
 
 func _build_cottage() -> void:

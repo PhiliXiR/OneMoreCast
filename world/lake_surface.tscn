@@ -4,9 +4,9 @@
 [ext_resource type="Shader" path="res://world/lake_surface.gdshader" id="2_shader"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_lake"]
-size = Vector2(28, 16)
-subdivide_width = 55
-subdivide_depth = 31
+size = Vector2(120, 800)
+subdivide_width = 119
+subdivide_depth = 199
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lake"]
 resource_local_to_scene = true

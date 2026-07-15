@@ -27,6 +27,8 @@ func _run_validation() -> void:
 	if environment.ambient_light_energy <= 0.0 or not environment.fog_enabled or environment.fog_density <= 0.0:
 		_fail("Dawn presentation needs cool ambient light and restrained distance mist")
 		return
+	if not _has_edge_free_world_scale(world):
+		return
 	var sun := world.get_node_or_null("DirectionalLight3D") as DirectionalLight3D
 	if sun == null or sun.light_energy <= 0.0 or sun.light_color.r <= sun.light_color.b:
 		_fail("Dawn presentation needs warm low-angle sunlight")
@@ -90,6 +92,31 @@ func _validate_fishing_readability(world: Node) -> bool:
 	spatial.call("refresh_casting_visuals", 0.08)
 	if not hooked_fish.visible or not (spatial.call("is_line_showing_valid_feedback") as bool):
 		_fail("Hooked fish and fishing line must remain readable under dawn presentation")
+		return false
+	return true
+
+
+func _has_edge_free_world_scale(world: Node) -> bool:
+	var lake := world.get_node_or_null("LakeSurface/Mesh") as MeshInstance3D
+	var ground := world.get_node_or_null("Ground/MeshInstance3D") as MeshInstance3D
+	var spatial := world.get_node_or_null("SpatialCasting") as Node
+	if lake == null or ground == null or spatial == null:
+		_fail("Home water needs its lake, shore ground, and casting bounds")
+		return false
+	var lake_mesh := lake.mesh as PlaneMesh
+	var ground_mesh := ground.mesh as BoxMesh
+	if lake_mesh == null or ground_mesh == null:
+		_fail("Home water needs scalable lake and shore meshes")
+		return false
+	if lake_mesh.size.x < 120.0 or lake_mesh.size.y < 800.0:
+		_fail("Lake surface must extend beyond any playable camera view")
+		return false
+	if ground_mesh.size.x < 120.0 or ground_mesh.size.z < 160.0:
+		_fail("Shore ground must extend beyond the visible dockside")
+		return false
+	var water_size := spatial.get("water_size") as Vector2
+	if water_size.x != lake_mesh.size.x or water_size.y != lake_mesh.size.y:
+		_fail("Fishing bounds must match the expanded lake surface")
 		return false
 	return true
 

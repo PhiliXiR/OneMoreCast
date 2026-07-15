@@ -10,6 +10,7 @@ const HUD_MARGIN := 12.0
 const COMPACT_DRAWER_MAX_WIDTH := 520.0
 const FieldJournalScript = preload("res://journal/field_journal.gd")
 const HomeCommunityScript = preload("res://community/home_community.gd")
+const UITheme = preload("res://ui/scripts/one_more_cast_theme.gd")
 
 @export var spatial_casting_provider_path: NodePath
 @onready var state_label: Label = $ActionPanel/Layout/StateLabel
@@ -40,6 +41,10 @@ const HomeCommunityScript = preload("res://community/home_community.gd")
 @onready var accessibility_meter_button: Button = $LogPanel/Scroll/Layout/AccessibilityMeterButton
 @onready var playtest_readout_button: Button = $LogPanel/Scroll/Layout/PlaytestReadoutButton
 @onready var title_label: Label = $TitleLabel
+@onready var field_card: PanelContainer = $FieldCard
+@onready var field_overline: Label = $FieldCard/Layout/Overline
+@onready var field_need: Label = $FieldCard/Layout/Need
+@onready var field_conditions: Label = $FieldCard/Layout/Conditions
 @onready var action_panel: PanelContainer = $ActionPanel
 @onready var log_panel: PanelContainer = $LogPanel
 @onready var home_panel: PanelContainer = $HomePanel
@@ -91,6 +96,7 @@ var _return_confirmation_pending := false
 
 
 func _ready() -> void:
+	_apply_field_journal_theme()
 	spatial_casting_provider = get_node_or_null(spatial_casting_provider_path)
 	if spatial_casting_provider != null and spatial_casting_provider.has_signal("fishing_evidence_observed"):
 		spatial_casting_provider.fishing_evidence_observed.connect(_on_fishing_evidence_observed)
@@ -132,6 +138,28 @@ func _ready() -> void:
 	_update_view(home_community.begin_first_outing())
 	_update_home_community_view()
 	call_deferred("_update_responsive_layout")
+
+
+func _apply_field_journal_theme() -> void:
+	UITheme.apply_body_font(self)
+	UITheme.apply_heading(title_label, 34, UITheme.PAPER_WARMTH)
+	UITheme.apply_caption(field_overline, UITheme.MOSS)
+	UITheme.apply_heading(field_need, 23)
+	UITheme.apply_caption(field_conditions)
+	UITheme.apply_heading(outcome_title, 38)
+	UITheme.apply_heading($FieldJournalMenu/Layout/Title as Label, 34)
+	for panel in [field_card, log_panel, home_panel, outcome_card, field_journal_menu]:
+		panel.add_theme_stylebox_override("panel", UITheme.paper_panel())
+	action_panel.add_theme_stylebox_override("panel", UITheme.ink_panel())
+	for button in [drawer_toggle_button, journal_drawer_tab, community_drawer_tab, field_journal_button, inspect_observation_button, presentation_button, far_bank_button, return_home_button, retain_observation_button, help_mara_button, accessibility_meter_button, playtest_readout_button, keep_button, release_button, continue_button, fish_again_button, journal_return_home_button, journal_close_button]:
+		UITheme.style_button(button)
+	UITheme.style_button(cast_button, true)
+	UITheme.style_button(release_button, false, true)
+	UITheme.style_tension_gauge(tension_gauge)
+	for label in [rig_tag, local_need_label, prompt_label, state_label, spatial_label, message_label, tutorial_label, fight_readout]:
+		label.add_theme_color_override("font_color", UITheme.PAPER_WARMTH)
+	for label in [outcome_details, outcome_lesson, journal_observations, return_prompt, inventory_label, journal_label, community_label]:
+		label.add_theme_color_override("font_color", UITheme.INK)
 
 
 func _process(delta: float) -> void:
@@ -218,28 +246,46 @@ func _update_responsive_layout() -> void:
 		return
 	var compact_hud := size.x < COMPACT_HUD_MIN_WIDTH or size.y < COMPACT_HUD_MIN_HEIGHT
 	if not compact_hud:
-		_drawer_open = false
 		title_label.visible = true
-		drawer_toggle_button.visible = false
-		journal_drawer_tab.visible = false
-		community_drawer_tab.visible = false
-		log_panel.visible = false
-		home_panel.visible = false
-		_place_panel(action_panel, Rect2(size.x - 360.0, size.y - 218.0, 336.0, 190.0))
-		_place_panel(log_panel, Rect2(size.x - 344.0, 72.0, 328.0, 250.0))
-		_place_panel(home_panel, Rect2(16.0, 72.0, 404.0, 310.0))
+		field_card.visible = true
+		_place_panel(field_card, Rect2(24.0, 72.0, 332.0, 136.0))
+		_place_panel(action_panel, Rect2((size.x - 520.0) * 0.5, size.y - 224.0, 520.0, 196.0))
+		drawer_toggle_button.visible = true
+		drawer_toggle_button.position = Vector2(size.x - 174.0, 18.0)
+		drawer_toggle_button.size = Vector2(150.0, 40.0)
+		drawer_toggle_button.text = "Field Notes" if not _drawer_open else "Close Notes"
+		journal_drawer_tab.visible = _drawer_open
+		community_drawer_tab.visible = _drawer_open
+		log_panel.visible = _drawer_open and _drawer_section == "journal"
+		home_panel.visible = _drawer_open and _drawer_section == "community"
+		var drawer_rect := Rect2(size.x - 408.0, 72.0, 384.0, minf(440.0, size.y - 320.0))
+		journal_drawer_tab.position = drawer_rect.position
+		journal_drawer_tab.size = Vector2(112.0, 34.0)
+		community_drawer_tab.position = drawer_rect.position + Vector2(120.0, 0.0)
+		community_drawer_tab.size = Vector2(128.0, 34.0)
+		journal_drawer_tab.disabled = _drawer_section == "journal"
+		community_drawer_tab.disabled = _drawer_section == "community"
+		drawer_rect.position.y += 42.0
+		drawer_rect.size.y -= 42.0
+		if log_panel.visible: _place_panel(log_panel, drawer_rect)
+		if home_panel.visible: _place_panel(home_panel, drawer_rect)
 		return
 
 	title_label.visible = false
+	field_card.visible = true
 	var margin := HUD_MARGIN
 	var drawer_width := minf(size.x - margin * 2.0, COMPACT_DRAWER_MAX_WIDTH)
 	var action_height := clampf(size.y * 0.26, 190.0, 218.0)
 	var action_rect := Rect2(margin, size.y - action_height - margin, size.x - margin * 2.0, action_height)
 	_place_panel(action_panel, action_rect)
-	drawer_toggle_button.visible = false
-	var content_rect := Rect2((size.x - drawer_width) * 0.5, 60.0, drawer_width, maxf(0.0, action_rect.position.y - 70.0))
-	journal_drawer_tab.visible = false
-	community_drawer_tab.visible = false
+	_place_panel(field_card, Rect2(margin, 56.0, minf(320.0, size.x - margin * 2.0), 112.0))
+	drawer_toggle_button.visible = true
+	drawer_toggle_button.position = Vector2(size.x - 146.0, margin)
+	drawer_toggle_button.size = Vector2(134.0, 36.0)
+	drawer_toggle_button.text = "Notes" if not _drawer_open else "Close"
+	var content_rect := Rect2((size.x - drawer_width) * 0.5, 180.0, drawer_width, maxf(0.0, action_rect.position.y - 190.0))
+	journal_drawer_tab.visible = _drawer_open
+	community_drawer_tab.visible = _drawer_open
 	journal_drawer_tab.position = content_rect.position
 	journal_drawer_tab.size = Vector2(92.0, 34.0)
 	community_drawer_tab.position = content_rect.position + Vector2(100.0, 0.0)
@@ -248,12 +294,10 @@ func _update_responsive_layout() -> void:
 	community_drawer_tab.disabled = _drawer_section == "community"
 	content_rect.position.y += 42.0
 	content_rect.size.y = maxf(0.0, content_rect.size.y - 42.0)
-	log_panel.visible = false
-	home_panel.visible = false
-	if log_panel.visible:
-		_place_panel(log_panel, content_rect)
-	if home_panel.visible:
-		_place_panel(home_panel, content_rect)
+	log_panel.visible = _drawer_open and _drawer_section == "journal"
+	home_panel.visible = _drawer_open and _drawer_section == "community"
+	if log_panel.visible: _place_panel(log_panel, content_rect)
+	if home_panel.visible: _place_panel(home_panel, content_rect)
 
 
 func _place_panel(panel: Control, rect: Rect2) -> void:
@@ -408,6 +452,7 @@ func _finish_landed_fish() -> void:
 	var weight: float = fish["weight"]
 	_update_view("%s breaks the surface — landed!" % name)
 	await get_tree().create_timer(0.8).timeout
+	_provider_call("close_water_lens")
 	record_observation("catch", "Caught %s (%.1f lb)." % [name, weight], "This presentation can produce %s here." % name)
 	state = CastState.RESULT
 	_update_view("You record %s as a catch." % name)
@@ -698,6 +743,9 @@ func _update_view(message: String) -> void:
 
 
 func _present_contextual_hud() -> void:
+	var conditions := _provider_conditions()
+	field_need.text = "Check Eli's dock line"
+	field_conditions.text = "%s · %s · %s" % [String(conditions["time_of_day"]).capitalize(), String(conditions["presentation"]), String(conditions["micro_habitat"])]
 	var pre_fight := state == CastState.READY or state == CastState.CASTING or state == CastState.WAITING or state == CastState.BITE
 	_set_pre_fight_hud_visible(pre_fight)
 	if not pre_fight:
@@ -730,7 +778,7 @@ func _present_contextual_hud() -> void:
 
 func _set_pre_fight_hud_visible(visible: bool) -> void:
 	rig_tag.visible = visible
-	local_need_label.visible = visible
+	local_need_label.visible = false
 	field_journal_button.visible = visible and state == CastState.READY
 	prompt_label.visible = visible and (state == CastState.READY or state == CastState.BITE)
 	cast_button.visible = state == CastState.READY or state == CastState.BITE or state == CastState.REELING
