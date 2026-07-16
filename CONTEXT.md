@@ -54,6 +54,23 @@ The continuous, familiar lake surrounding the community and forming the compact
 foundation's primary place of fishing, travel, and return.
 _Avoid_: Map, level, fishing stage
 
+**Tree line**:
+The layered pine and shore-forest silhouette along the inaccessible shore and
+far bank that frames the home water and suggests its compact edge without
+acting as the physical traversal boundary.
+_Avoid_: Invisible wall, fence, map border
+
+**Pine kit**:
+The small family of compatible, weathered low-poly pine variants used to
+compose the tree line: a tall landmark pine, a standard pine, and a smaller or
+leaning pine.
+_Avoid_: One repeated tree, generic foliage pack, foliage system
+
+**Non-interactive scenery**:
+World dressing that strengthens the readability and atmosphere of a place
+without adding collision, prompts, inventory, or a new gameplay rule.
+_Avoid_: Obstacle, collectible, simulation system
+
 **Micro-habitat**:
 A small, authored section of the home water with distinct visible conditions,
 fish presence, and fishing implications.
