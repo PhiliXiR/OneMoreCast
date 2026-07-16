@@ -4,8 +4,8 @@
 
 - Issue: #98 Create a reviewable Home Cottage Blender asset set
 - Batch type: generated
-- Review status: proposed
-- Intended use: Candidate exterior and roofless interior source art for the Home Cottage, with an in-world Mara Vale presentation.
+- Review status: approved (Home Cottage exports); Mara Vale remains proposed
+- Intended use: Approved exterior and roofless interior runtime exports for the Home Cottage, with an in-world Mara Vale presentation still awaiting approval.
 
 ## Source
 
@@ -33,5 +33,5 @@
 
 - What should be evaluated: Cottage silhouette and dock-facing porch door; interior door-to-desk-to-Mara route; roofless camera readability; stove, shelves, bed nook, and practical fishing props; muted weathered material palette and Mara scale.
 - Approval criteria: A modest, weathered shared working lakeside home that can be explicitly approved before any candidate export is promoted into runtime assets.
-- Decision: Pending human visual review. Do not promote this batch into normal asset folders.
+- Decision: Home Cottage exterior and roofless interior approved for runtime promotion on 2026-07-15. Their GLB exports are promoted to `assets/props/home_cottage/`; keep the editable source, previews, and Mara export in this review batch. Mara Vale remains pending a separate visual approval.
 - Follow-up issues: None.
