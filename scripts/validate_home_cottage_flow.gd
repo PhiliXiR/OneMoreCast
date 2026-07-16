@@ -1,8 +1,8 @@
 extends SceneTree
 
 const WORLD_SCENE := "res://scenes/world_prototype.tscn"
-const INTERIOR_ENTRY := Vector3(28.0, 0.12, -198.1)
-const INTERIOR_EXIT := Vector3(28.0, 0.12, -202.45)
+const INTERIOR_ENTRY := Vector3(28.0, 0.12, -198.35)
+const INTERIOR_EXIT := Vector3(28.0, 0.12, -197.25)
 
 
 func _initialize() -> void:
@@ -20,8 +20,8 @@ func _run_validation() -> void:
 	if flow == null or player == null or casting_ui == null or camera == null:
 		_fail("Home Cottage flow needs player, camera, fishing, and routing seams")
 		return
-	if flow.get_node_or_null("HomeCottageInterior") == null or not flow.get_node("HomeCottageInterior").get_meta("roofless", false):
-		_fail("Home Cottage requires a readable roofless runtime interior")
+	if flow.get_node_or_null("HomeCottageInterior") == null or not flow.get_node("HomeCottageInterior").get_meta("approved_asset", false):
+		_fail("Home Cottage requires the approved interior asset at runtime")
 		return
 	player.global_position = flow.get_porch_position()
 	await process_frame
@@ -35,7 +35,10 @@ func _run_validation() -> void:
 	if float(camera.call("get_preferred_distance")) > 3.5:
 		_fail("Interior should use a closer camera profile")
 		return
-	if flow.get_node_or_null("HomeCottageInterior/WarmPracticalLight") == null or flow.get_node_or_null("HomeCottageInterior/MaraVale") == null:
+	if absf(float(camera.call("get_yaw_degrees"))) > 0.1:
+		_fail("Entering the Home Cottage should face inward from its doorway")
+		return
+	if flow.get_node_or_null("HomeCottageInterior/WarmPracticalLight") == null or flow.get_node_or_null("HomeCottageInterior/MaraVale/MaraCoat") == null:
 		_fail("Interior needs warm practical light and a visible Mara Vale")
 		return
 	player.global_position = flow.call("get_interior_interaction_position", "WritingDesk") as Vector3

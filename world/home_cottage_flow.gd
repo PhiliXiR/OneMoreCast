@@ -14,8 +14,9 @@ extends Node3D
 const REDUCED_MOTION_SETTING := "accessibility/reduce_motion"
 const PORCH_FALLBACK_POSITION := Vector3(5.9, 0.12, -1.95)
 const INTERIOR_ORIGIN := Vector3(28.0, 0.0, -200.0)
-const INTERIOR_ENTRY := INTERIOR_ORIGIN + Vector3(0.0, 0.12, 1.9)
-const INTERIOR_EXIT := INTERIOR_ORIGIN + Vector3(0.0, 0.12, -2.45)
+const INTERIOR_ENTRY := INTERIOR_ORIGIN + Vector3(0.0, 0.12, 1.65)
+const INTERIOR_EXIT := INTERIOR_ORIGIN + Vector3(0.0, 0.12, 2.75)
+const HOME_COTTAGE_INTERIOR := preload("res://assets/props/home_cottage/home_cottage_interior_roofless.glb")
 
 var player: CharacterBody3D
 var camera: Node
@@ -23,6 +24,7 @@ var casting_ui: Node
 var _inside := false
 var _transitioning := false
 var _outside_camera_distance := 6.0
+var _outside_camera_yaw := 180.0
 var _prompt: Label
 var _feedback: Label
 var _interior: Node3D
@@ -113,6 +115,7 @@ func _enter_interior() -> void:
 	_place_player(INTERIOR_ENTRY)
 	_inside = true
 	_set_camera_distance(3.4)
+	_set_camera_yaw(0.0)
 	_transitioning = false
 	_show_feedback("Home Cottage interior. Walk to the door and press E to return to the porch.")
 
@@ -124,6 +127,7 @@ func _return_to_porch() -> void:
 	_place_player(get_porch_position())
 	_inside = false
 	_set_camera_distance(_outside_camera_distance)
+	_set_camera_yaw(_outside_camera_yaw)
 	_transitioning = false
 	_show_feedback("Back on the porch. Your outing remains recorded.")
 
@@ -146,6 +150,16 @@ func _set_camera_distance(distance: float) -> void:
 	if not _inside:
 		_outside_camera_distance = float(camera.call("get_preferred_distance"))
 	camera.call("set_preferred_distance", distance)
+	camera.call("force_update")
+
+
+func _set_camera_yaw(yaw_degrees: float) -> void:
+	if camera == null or not camera.has_method("get_yaw_degrees") or not camera.has_method("orbit"):
+		return
+	if not _inside:
+		_outside_camera_yaw = float(camera.call("get_yaw_degrees"))
+	var current_yaw := float(camera.call("get_yaw_degrees"))
+	camera.call("orbit", wrapf(yaw_degrees - current_yaw, -180.0, 180.0), 0.0)
 	camera.call("force_update")
 
 
@@ -229,10 +243,89 @@ func _update_interior_lighting() -> void:
 
 
 func _load_interior() -> void:
-	var packed_interior := load("res://scenes/home_cottage_interior.tscn") as PackedScene
-	if packed_interior == null:
+	if HOME_COTTAGE_INTERIOR == null:
 		push_error("Home Cottage interior scene could not load")
 		return
-	_interior = packed_interior.instantiate() as Node3D
+	_interior = HOME_COTTAGE_INTERIOR.instantiate() as Node3D
+	if _interior == null:
+		push_error("Approved Home Cottage interior could not instantiate")
+		return
+	_interior.name = "HomeCottageInterior"
+	_interior.set_meta("approved_asset", true)
 	_interior.position = INTERIOR_ORIGIN
 	add_child(_interior)
+	_add_interior_marker("WritingDesk", Vector3(-1.55, 0.12, 0.45))
+	_add_interior_marker("MaraVale", Vector3(0.95, 0.12, -0.55))
+	_add_mara_figure()
+	_add_interior_collision()
+	_add_interior_practical_light()
+
+
+func _add_interior_marker(node_name: String, position: Vector3) -> void:
+	var marker := Marker3D.new()
+	marker.name = node_name
+	marker.position = position
+	_interior.add_child(marker)
+
+
+func _add_mara_figure() -> void:
+	var mara := _interior.get_node_or_null("MaraVale") as Node3D
+	if mara == null:
+		return
+	var coat := StandardMaterial3D.new()
+	coat.albedo_color = Color("#334b35")
+	coat.roughness = 0.85
+	var body_mesh := CylinderMesh.new()
+	body_mesh.top_radius = 0.3
+	body_mesh.bottom_radius = 0.38
+	body_mesh.height = 1.18
+	var body := MeshInstance3D.new()
+	body.name = "MaraCoat"
+	body.position = Vector3(0.0, 0.84, 0.0)
+	body.mesh = body_mesh
+	body.material_override = coat
+	mara.add_child(body)
+	var skin := StandardMaterial3D.new()
+	skin.albedo_color = Color("#6d3d28")
+	skin.roughness = 0.78
+	var head_mesh := SphereMesh.new()
+	head_mesh.radius = 0.24
+	head_mesh.height = 0.48
+	var head := MeshInstance3D.new()
+	head.name = "MaraHead"
+	head.position = Vector3(0.0, 1.7, 0.0)
+	head.mesh = head_mesh
+	head.material_override = skin
+	mara.add_child(head)
+
+
+func _add_interior_collision() -> void:
+	_add_box_collision("FloorCollision", Vector3(0.0, -0.08, 0.0), Vector3(6.0, 0.16, 5.0))
+	_add_box_collision("WestWallCollision", Vector3(-3.0, 1.45, 0.0), Vector3(0.16, 2.9, 5.0))
+	_add_box_collision("EastWallCollision", Vector3(3.0, 1.45, 0.0), Vector3(0.16, 2.9, 5.0))
+	_add_box_collision("BackWallCollision", Vector3(0.0, 1.45, -2.5), Vector3(6.0, 2.9, 0.16))
+	_add_box_collision("DoorWallWestCollision", Vector3(-2.0, 1.45, 2.5), Vector3(2.0, 2.9, 0.16))
+	_add_box_collision("DoorWallEastCollision", Vector3(2.0, 1.45, 2.5), Vector3(2.0, 2.9, 0.16))
+
+
+func _add_box_collision(node_name: String, position: Vector3, size: Vector3) -> void:
+	var body := StaticBody3D.new()
+	body.name = node_name
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	shape.position = position
+	body.add_child(shape)
+	_interior.add_child(body)
+
+
+func _add_interior_practical_light() -> void:
+	var light := OmniLight3D.new()
+	light.name = "WarmPracticalLight"
+	light.position = Vector3(-0.25, 2.45, 0.2)
+	light.light_color = Color(1, 0.68, 0.38, 1)
+	light.light_energy = 2.05
+	light.omni_range = 7.5
+	light.shadow_enabled = true
+	_interior.add_child(light)
