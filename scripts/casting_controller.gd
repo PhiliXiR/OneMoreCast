@@ -187,7 +187,7 @@ func configure_next_fight(configuration: Dictionary) -> void:
 	next_fight_configuration = configuration.duplicate(true)
 
 
-func start_playtest_fixture(fixture: String) -> void:
+func start_playtest_fixture(fixture: String, shot_policy := "line pull") -> void:
 	# Developer-only repeatable states used by validation and manual playtest sessions.
 	var fixtures := {
 		"recovery": {"recovery_only": true, "recovery_reel_rate": 0.12},
@@ -199,7 +199,9 @@ func start_playtest_fixture(fixture: String) -> void:
 	if not fixtures.has(fixture):
 		push_warning("Unknown fight playtest fixture: %s" % fixture)
 		return
-	configure_next_fight(fixtures[fixture])
+	var configuration: Dictionary = fixtures[fixture].duplicate(true)
+	configuration["water_lens_shot_policy"] = shot_policy
+	configure_next_fight(configuration)
 
 
 func get_fight_snapshot() -> Dictionary:
@@ -378,6 +380,9 @@ func _begin_fight() -> void:
 			"surge_durations": _vary_durations([1.35, 1.45, 1.35], 0.1),
 			"surge_count": randi_range(2, 3),
 		}
+	var shot_policy := String(config.get("water_lens_shot_policy", "line pull"))
+	config.erase("water_lens_shot_policy")
+	_provider_call("set_water_lens_shot_policy", [shot_policy])
 	fight_model.start(config)
 	fight_snapshot = fight_model.snapshot()
 	_last_fight_phase = -1

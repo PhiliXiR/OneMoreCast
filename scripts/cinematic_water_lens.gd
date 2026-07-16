@@ -3,6 +3,9 @@ extends Node3D
 
 ## Game-owned prototype for proving authored fight framing before any pipeline promotion.
 enum Shot { WIDE, PURSUIT, CLOSE_UP, LANDING }
+enum ShotPolicy { WATER_READ, LINE_PULL, LANDING_FOCUS }
+
+const SHOT_POLICY_NAMES := ["water read", "line pull", "landing focus"]
 
 @export var hooked_fish_path: NodePath
 @export var hook_path: NodePath
@@ -20,6 +23,7 @@ enum Shot { WIDE, PURSUIT, CLOSE_UP, LANDING }
 @onready var camera: Camera3D = $SubViewport/Camera3D
 
 var active_shot := Shot.WIDE
+var active_shot_policy := ShotPolicy.LINE_PULL
 var _active := false
 var _phase := FishFightModel.Phase.RECOVERY
 var _landing_progress := 0.0
@@ -44,6 +48,22 @@ func begin_fight() -> void:
 	_set_shot(Shot.WIDE)
 	if lens_panel != null:
 		lens_panel.visible = true
+
+
+func set_shot_policy(policy_name: String) -> void:
+	var policy_index := SHOT_POLICY_NAMES.find(policy_name.to_lower())
+	if policy_index == -1:
+		push_warning("Unknown Water Lens shot policy: %s" % policy_name)
+		return
+	active_shot_policy = policy_index as ShotPolicy
+
+
+func get_active_shot_policy_name() -> String:
+	return SHOT_POLICY_NAMES[active_shot_policy]
+
+
+func get_shot_policy_names() -> Array[String]:
+	return SHOT_POLICY_NAMES.duplicate()
 
 
 func apply_fight_snapshot(snapshot: Dictionary) -> void:
@@ -79,10 +99,19 @@ func _process(_delta: float) -> void:
 
 
 func _select_shot() -> Shot:
-	if _landing_progress >= 0.92:
-		return Shot.LANDING
-	if _phase != FishFightModel.Phase.RECOVERY or _danger:
-		return Shot.CLOSE_UP
+	match active_shot_policy:
+		ShotPolicy.WATER_READ:
+			return Shot.LANDING if _landing_progress >= 0.96 else Shot.WIDE
+		ShotPolicy.LINE_PULL:
+			if _landing_progress >= 0.92:
+				return Shot.LANDING
+			if _phase != FishFightModel.Phase.RECOVERY or _danger:
+				return Shot.CLOSE_UP
+			return Shot.PURSUIT
+		ShotPolicy.LANDING_FOCUS:
+			if _landing_progress >= 0.45:
+				return Shot.LANDING
+			return Shot.CLOSE_UP if _phase != FishFightModel.Phase.RECOVERY or _danger else Shot.PURSUIT
 	return Shot.PURSUIT
 
 

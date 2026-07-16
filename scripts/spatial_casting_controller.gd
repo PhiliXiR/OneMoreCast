@@ -406,6 +406,11 @@ func is_reel_feedback_active() -> bool:
 	return _reel_feedback_active
 
 
+func set_water_lens_shot_policy(policy_name: String) -> void:
+	if water_lens != null and water_lens.has_method("set_shot_policy"):
+		water_lens.call("set_shot_policy", policy_name)
+
+
 func apply_fight_snapshot(snapshot: Dictionary, reel_held: bool) -> void:
 	if not _reel_feedback_active:
 		return
