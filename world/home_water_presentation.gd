@@ -313,6 +313,16 @@ func _build_shore_tree_clusters() -> void:
 	_add_pine(cottage_cluster, "CottageStandardPine", PINE_STANDARD, Vector3(3.5, 0.0, -6.5), Vector3(0.57, 0.57, 0.57), -0.16)
 	_add_pine(cottage_cluster, "CottageLeaningPine", PINE_LEANING, Vector3(7.4, 0.0, -7.0), Vector3(0.62, 0.62, 0.62), 0.19)
 	_add_pine(cottage_cluster, "CottageStandardPine02", PINE_STANDARD, Vector3(9.7, 0.0, -5.5), Vector3(0.46, 0.46, 0.46), 0.03)
+	_add_pine(cottage_cluster, "CottageLeaningPine02", PINE_LEANING, Vector3(-1.5, 0.0, -4.9), Vector3(0.42, 0.42, 0.42), -0.11)
+	_add_pine(cottage_cluster, "CottageStandardPine03", PINE_STANDARD, Vector3(-3.8, 0.0, -6.7), Vector3(0.54, 0.54, 0.54), 0.15)
+	_add_pine(cottage_cluster, "CottageLandmarkPine02", PINE_LANDMARK, Vector3(-5.8, 0.0, -5.1), Vector3(0.39, 0.39, 0.39), -0.04)
+	_add_pine(cottage_cluster, "CottageStandardPine04", PINE_STANDARD, Vector3(-7.6, 0.0, -7.4), Vector3(0.48, 0.48, 0.48), 0.2)
+	_add_pine(cottage_cluster, "CottageLeaningPine03", PINE_LEANING, Vector3(11.5, 0.0, -7.2), Vector3(0.5, 0.5, 0.5), -0.17)
+	_add_pine(cottage_cluster, "CottageStandardPine05", PINE_STANDARD, Vector3(13.2, 0.0, -5.9), Vector3(0.43, 0.43, 0.43), 0.09)
+	_add_pine(cottage_cluster, "CottageLandmarkPine03", PINE_LANDMARK, Vector3(15.0, 0.0, -7.8), Vector3(0.37, 0.37, 0.37), -0.08)
+	_add_pine(cottage_cluster, "CottageLeaningPine04", PINE_LEANING, Vector3(-10.0, 0.0, -5.9), Vector3(0.4, 0.4, 0.4), 0.14)
+	_add_pine(cottage_cluster, "CottageStandardPine06", PINE_STANDARD, Vector3(-12.1, 0.0, -7.6), Vector3(0.45, 0.45, 0.45), -0.19)
+	_add_pine(cottage_cluster, "CottageLandmarkPine04", PINE_LANDMARK, Vector3(17.1, 0.0, -6.4), Vector3(0.34, 0.34, 0.34), 0.05)
 
 	var inlet_cluster := Node3D.new()
 	inlet_cluster.name = INLET_TREE_CLUSTER_NAME
@@ -322,6 +332,16 @@ func _build_shore_tree_clusters() -> void:
 	_add_pine(inlet_cluster, "InletStandardPine", PINE_STANDARD, Vector3(14.3, 0.0, 1.0), Vector3(0.6, 0.6, 0.6), 0.11)
 	_add_pine(inlet_cluster, "InletLandmarkPine", PINE_LANDMARK, Vector3(16.7, 0.0, 1.65), Vector3(0.45, 0.45, 0.45), -0.06)
 	_add_pine(inlet_cluster, "InletStandardPine02", PINE_STANDARD, Vector3(18.8, 0.0, 0.82), Vector3(0.5, 0.5, 0.5), 0.17)
+	_add_pine(inlet_cluster, "InletLeaningPine02", PINE_LEANING, Vector3(11.7, 0.0, -0.9), Vector3(0.44, 0.44, 0.44), 0.08)
+	_add_pine(inlet_cluster, "InletStandardPine03", PINE_STANDARD, Vector3(13.2, 0.0, -1.35), Vector3(0.51, 0.51, 0.51), -0.13)
+	_add_pine(inlet_cluster, "InletLandmarkPine02", PINE_LANDMARK, Vector3(15.6, 0.0, -0.75), Vector3(0.4, 0.4, 0.4), 0.18)
+	_add_pine(inlet_cluster, "InletLeaningPine03", PINE_LEANING, Vector3(17.9, 0.0, -1.5), Vector3(0.47, 0.47, 0.47), -0.09)
+	_add_pine(inlet_cluster, "InletStandardPine04", PINE_STANDARD, Vector3(20.8, 0.0, 1.45), Vector3(0.45, 0.45, 0.45), 0.04)
+	_add_pine(inlet_cluster, "InletLandmarkPine03", PINE_LANDMARK, Vector3(22.5, 0.0, 0.35), Vector3(0.36, 0.36, 0.36), -0.16)
+	_add_pine(inlet_cluster, "InletStandardPine05", PINE_STANDARD, Vector3(24.2, 0.0, 1.8), Vector3(0.41, 0.41, 0.41), 0.12)
+	_add_pine(inlet_cluster, "InletLeaningPine04", PINE_LEANING, Vector3(20.1, 0.0, -1.1), Vector3(0.42, 0.42, 0.42), -0.2)
+	_add_pine(inlet_cluster, "InletStandardPine06", PINE_STANDARD, Vector3(23.0, 0.0, -0.65), Vector3(0.38, 0.38, 0.38), 0.07)
+	_add_pine(inlet_cluster, "InletLandmarkPine04", PINE_LANDMARK, Vector3(26.0, 0.0, 0.8), Vector3(0.33, 0.33, 0.33), -0.12)
 
 
 func _build_far_bank_dressing() -> void:

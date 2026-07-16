@@ -16,6 +16,7 @@ const INLET_VIEWPOINT := Vector3(0.0, 1.55, -2.0)
 const INLET_LOOK_TARGET := Vector3(8.7, 0.9, 5.4)
 const FAR_BANK_VIEWPOINT := Vector3(0.0, 1.55, -2.0)
 const FAR_BANK_LOOK_TARGET := Vector3(-8.5, 0.8, 2.4)
+const MIN_TREES_PER_CLUSTER := 14
 
 
 func _initialize() -> void:
@@ -43,6 +44,9 @@ func _run_validation() -> void:
 		var cluster := clusters.get_node_or_null(cluster_name) as Node3D
 		if cluster == null or cluster.get_meta("interactive", true) or _has_collision_shape(cluster):
 			_fail("Shore tree cluster %s must remain visual-only" % cluster_name)
+			return
+		if cluster.get_child_count() < MIN_TREES_PER_CLUSTER:
+			_fail("Shore tree clusters need a dense, uneven Pine kit composition")
 			return
 	for pine_name in REQUIRED_VARIANT_PATHS:
 		var pine := clusters.find_child(pine_name, true, false) as Node3D
