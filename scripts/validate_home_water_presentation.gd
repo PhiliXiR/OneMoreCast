@@ -42,8 +42,12 @@ func _run_validation() -> void:
 		_fail("Presentation must create natural shore collision")
 		return
 	var cottage := presentation.get_node_or_null("HomeCottageExterior") as Node3D
-	if cottage == null or not cottage.get_meta("approved_asset", false) or presentation.get_node_or_null("DocksideCottage") != null:
+	if cottage == null or not cottage.get_meta("approved_asset", false) or cottage.get_node_or_null("EntryMarker") == null or presentation.get_node_or_null("DocksideCottage") != null:
 		_fail("Home Cottage exterior must use the approved asset, not the temporary procedural cottage")
+		return
+	var entry_marker := cottage.get_node("EntryMarker") as Marker3D
+	if entry_marker.global_position.z <= cottage.global_position.z:
+		_fail("Home Cottage entry must remain on the approved asset's dock-facing porch")
 		return
 	if presentation.get_node_or_null("ProceduralInletDressing/InletReed00") == null or presentation.get_node_or_null("ProceduralRockyFarBank/FarBankRock00") == null:
 		_fail("Inlet and far-bank fishing implications need distinct procedural dressing")

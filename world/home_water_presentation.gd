@@ -131,7 +131,13 @@ func _build_cottage() -> void:
 	cottage.position = Vector3(5.9, 0.0, -5.7)
 	cottage.set_meta("interactive", true)
 	cottage.set_meta("approved_asset", true)
+	cottage.add_to_group(&"home_cottage_exterior")
 	add_child(cottage)
+	var entry_marker := Marker3D.new()
+	entry_marker.name = "EntryMarker"
+	# The approved asset's dock-facing porch is its positive local Z side.
+	entry_marker.position = Vector3(0.0, 0.12, 3.75)
+	cottage.add_child(entry_marker)
 	# The simple collision boundary keeps the exterior solid without recreating
 	# any temporary visible geometry around the approved asset.
 	_add_static_collision(cottage, "CottageCollision", Vector3(0, 1.35, 0), Vector3(6.3, 2.7, 5.3))

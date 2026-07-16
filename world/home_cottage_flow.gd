@@ -12,7 +12,7 @@ extends Node3D
 @export var reduced_motion := false
 
 const REDUCED_MOTION_SETTING := "accessibility/reduce_motion"
-const PORCH_POSITION := Vector3(5.9, 0.12, -9.25)
+const PORCH_FALLBACK_POSITION := Vector3(5.9, 0.12, -1.95)
 const INTERIOR_ORIGIN := Vector3(28.0, 0.0, -200.0)
 const INTERIOR_ENTRY := INTERIOR_ORIGIN + Vector3(0.0, 0.12, 1.9)
 const INTERIOR_EXIT := INTERIOR_ORIGIN + Vector3(0.0, 0.12, -2.45)
@@ -75,11 +75,13 @@ func is_inside_home_cottage() -> bool:
 
 
 func get_porch_position() -> Vector3:
-	return PORCH_POSITION
+	var exterior := get_tree().get_first_node_in_group(&"home_cottage_exterior") as Node3D
+	var marker := exterior.get_node_or_null("EntryMarker") as Marker3D if exterior != null else null
+	return marker.global_position if marker != null else PORCH_FALLBACK_POSITION
 
 
 func is_near_home_cottage() -> bool:
-	return not _inside and _is_near(PORCH_POSITION)
+	return not _inside and _is_near(get_porch_position())
 
 
 func show_entry_blocked_feedback() -> void:
@@ -119,7 +121,7 @@ func _return_to_porch() -> void:
 	_transitioning = true
 	_show_feedback("Returning to the porch…")
 	await _brief_transition()
-	_place_player(PORCH_POSITION)
+	_place_player(get_porch_position())
 	_inside = false
 	_set_camera_distance(_outside_camera_distance)
 	_transitioning = false
@@ -161,7 +163,7 @@ func _update_prompt() -> void:
 	elif _inside and _is_near_interior_node("MaraVale"):
 		_prompt.text = "E  Speak with Mara Vale"
 		_prompt.visible = true
-	elif not _inside and _is_near(PORCH_POSITION):
+	elif not _inside and _is_near(get_porch_position()):
 		_prompt.text = "E  Enter Home Cottage" if _is_fishing_settled() else "E  Home Cottage — settle the line first"
 		_prompt.visible = true
 	else:
