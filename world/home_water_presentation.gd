@@ -27,6 +27,9 @@ const EAST_BUOY_NAME := "MarkerBuoyEast"
 const FAR_BANK_NAME := "FarBankSilhouette"
 const PINE_TREE_LINE_NAME := "PineTreeLine"
 const PINE_TREE_LINE_VIEW_ANCHOR_NAME := "TreeLineViewAnchor"
+const SHORE_TREE_CLUSTERS_NAME := "ShoreTreeClusters"
+const COTTAGE_TREE_CLUSTER_NAME := "CottageTreeCluster"
+const INLET_TREE_CLUSTER_NAME := "InletTreeCluster"
 const WATERSHED_MARKER_NAME := "WatershedSurveyMarker"
 const FAR_HORIZON_POSITION := Vector3(0.0, 0.0, 31.0)
 const FAR_HORIZON_WIDTH := 180.0
@@ -51,6 +54,7 @@ func _ready() -> void:
 	_build_dockside_foreground()
 	_build_open_water_landmarks()
 	_build_inlet_dressing()
+	_build_shore_tree_clusters()
 	_build_far_bank_dressing()
 	_build_far_horizon()
 	_build_environmental_life()
@@ -117,6 +121,33 @@ func has_layered_far_horizon() -> bool:
 		and tree_line.get_node_or_null("StandardPine") != null \
 		and tree_line.get_node_or_null("LeaningPine") != null \
 		and horizon.get_node_or_null(WATERSHED_MARKER_NAME) != null
+
+
+func has_clear_shore_tree_cluster_clearances() -> bool:
+	var clusters := get_node_or_null(SHORE_TREE_CLUSTERS_NAME) as Node3D
+	var cottage := get_node_or_null("HomeCottageExterior") as Node3D
+	if clusters == null or cottage == null:
+		return false
+	var entry := cottage.get_node_or_null("EntryMarker") as Marker3D
+	var inlet := get_parent().get_node_or_null("VegetatedInlet") as Node3D
+	if entry == null or inlet == null:
+		return false
+	# The trees frame the shore from behind its landmarks. Keep a broad walking
+	# and casting margin around the cottage porch, dock lane, and inlet cue.
+	for cluster in clusters.get_children():
+		if not cluster is Node3D:
+			continue
+		for pine in cluster.get_children():
+			if not pine is Node3D:
+				continue
+			var tree := pine as Node3D
+			if tree.global_position.distance_to(entry.global_position) < 4.3:
+				return false
+			if absf(tree.global_position.x + 0.65) < 2.15 and tree.global_position.z > -1.5 and tree.global_position.z < 5.8:
+				return false
+			if tree.global_position.distance_to(inlet.global_position) < 3.0:
+				return false
+	return true
 
 
 func _build_shoreline() -> void:
@@ -264,6 +295,33 @@ func _build_inlet_dressing() -> void:
 		_register_swaying_reed(reed, 0.04 + float(index % 3) * 0.01, angle * 1.7)
 	for index in 5:
 		_add_disc(inlet, "InletLily%02d" % index, Vector3(-0.5 + float(index) * 0.38, 0.035, 1.0 + sin(float(index)) * 0.3), 0.25, Color("#234c2b"))
+
+
+func _build_shore_tree_clusters() -> void:
+	# These uneven, visual-only clusters make the near shore feel continuous
+	# without turning either landmark into a destination or blocking the dock.
+	var clusters := Node3D.new()
+	clusters.name = SHORE_TREE_CLUSTERS_NAME
+	clusters.set_meta("interactive", false)
+	add_child(clusters)
+
+	var cottage_cluster := Node3D.new()
+	cottage_cluster.name = COTTAGE_TREE_CLUSTER_NAME
+	cottage_cluster.set_meta("interactive", false)
+	clusters.add_child(cottage_cluster)
+	_add_pine(cottage_cluster, "CottageLandmarkPine", PINE_LANDMARK, Vector3(1.2, 0.0, -3.7), Vector3(0.48, 0.48, 0.48), 0.08)
+	_add_pine(cottage_cluster, "CottageStandardPine", PINE_STANDARD, Vector3(3.5, 0.0, -6.5), Vector3(0.57, 0.57, 0.57), -0.16)
+	_add_pine(cottage_cluster, "CottageLeaningPine", PINE_LEANING, Vector3(7.4, 0.0, -7.0), Vector3(0.62, 0.62, 0.62), 0.19)
+	_add_pine(cottage_cluster, "CottageStandardPine02", PINE_STANDARD, Vector3(9.7, 0.0, -5.5), Vector3(0.46, 0.46, 0.46), 0.03)
+
+	var inlet_cluster := Node3D.new()
+	inlet_cluster.name = INLET_TREE_CLUSTER_NAME
+	inlet_cluster.set_meta("interactive", false)
+	clusters.add_child(inlet_cluster)
+	_add_pine(inlet_cluster, "InletLeaningPine", PINE_LEANING, Vector3(12.2, 0.0, 1.4), Vector3(0.54, 0.54, 0.54), -0.24)
+	_add_pine(inlet_cluster, "InletStandardPine", PINE_STANDARD, Vector3(14.3, 0.0, 1.0), Vector3(0.6, 0.6, 0.6), 0.11)
+	_add_pine(inlet_cluster, "InletLandmarkPine", PINE_LANDMARK, Vector3(16.7, 0.0, 1.65), Vector3(0.45, 0.45, 0.45), -0.06)
+	_add_pine(inlet_cluster, "InletStandardPine02", PINE_STANDARD, Vector3(18.8, 0.0, 0.82), Vector3(0.5, 0.5, 0.5), 0.17)
 
 
 func _build_far_bank_dressing() -> void:
