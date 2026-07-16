@@ -85,6 +85,21 @@ The small set of recurring people at the home water whose needs, practical
 knowledge, and local accounts make fishing socially meaningful.
 _Avoid_: Quest hub, NPC roster, task board
 
+**Home Cottage**:
+The modest, weathered shared working lakeside dwelling where the player
+returns between outings and encounters the home community.
+_Avoid_: Dockside cottage, base, player house
+
+**Home Cottage Interior**:
+The compact, separately loaded single-room interior of the Home Cottage where
+the player reads the field journal and meets a community contact.
+_Avoid_: House interior, home screen, cabin instance
+
+**Mara Vale**:
+The Home Cottage contact whose dockside-supper need gives the first outings a
+local practical purpose.
+_Avoid_: Quest giver, shopkeeper, generic NPC
+
 **Knowledge-and-access progression**:
 Advancement through learned fishing conditions, new presentations, trusted
 relationships, and reachable micro-habitats rather than escalating equipment
