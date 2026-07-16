@@ -29,6 +29,7 @@ const PINE_TREE_LINE_NAME := "PineTreeLine"
 const PINE_TREE_LINE_VIEW_ANCHOR_NAME := "TreeLineViewAnchor"
 const SHORE_TREE_CLUSTERS_NAME := "ShoreTreeClusters"
 const COTTAGE_TREE_CLUSTER_NAME := "CottageTreeCluster"
+const COTTAGE_BACK_FOREST_NAME := "CottageBackForest"
 const INLET_TREE_CLUSTER_NAME := "InletTreeCluster"
 const WATERSHED_MARKER_NAME := "WatershedSurveyMarker"
 const FAR_HORIZON_POSITION := Vector3(0.0, 0.0, 31.0)
@@ -134,19 +135,16 @@ func has_clear_shore_tree_cluster_clearances() -> bool:
 		return false
 	# The trees frame the shore from behind its landmarks. Keep a broad walking
 	# and casting margin around the cottage porch, dock lane, and inlet cue.
-	for cluster in clusters.get_children():
-		if not cluster is Node3D:
+	for descendant in clusters.find_children("*", "Node3D", true, false):
+		var tree := descendant as Node3D
+		if not tree.get_meta("approved_asset", false):
 			continue
-		for pine in cluster.get_children():
-			if not pine is Node3D:
-				continue
-			var tree := pine as Node3D
-			if tree.global_position.distance_to(entry.global_position) < 4.3:
-				return false
-			if absf(tree.global_position.x + 0.65) < 2.15 and tree.global_position.z > -1.5 and tree.global_position.z < 5.8:
-				return false
-			if tree.global_position.distance_to(inlet.global_position) < 3.0:
-				return false
+		if tree.global_position.distance_to(entry.global_position) < 4.3:
+			return false
+		if absf(tree.global_position.x + 0.65) < 2.15 and tree.global_position.z > -1.5 and tree.global_position.z < 5.8:
+			return false
+		if tree.global_position.distance_to(inlet.global_position) < 3.0:
+			return false
 	return true
 
 
@@ -323,6 +321,7 @@ func _build_shore_tree_clusters() -> void:
 	_add_pine(cottage_cluster, "CottageLeaningPine04", PINE_LEANING, Vector3(-10.0, 0.0, -5.9), Vector3(0.4, 0.4, 0.4), 0.14)
 	_add_pine(cottage_cluster, "CottageStandardPine06", PINE_STANDARD, Vector3(-12.1, 0.0, -7.6), Vector3(0.45, 0.45, 0.45), -0.19)
 	_add_pine(cottage_cluster, "CottageLandmarkPine04", PINE_LANDMARK, Vector3(17.1, 0.0, -6.4), Vector3(0.34, 0.34, 0.34), 0.05)
+	_build_cottage_back_forest(clusters)
 
 	var inlet_cluster := Node3D.new()
 	inlet_cluster.name = INLET_TREE_CLUSTER_NAME
@@ -342,6 +341,32 @@ func _build_shore_tree_clusters() -> void:
 	_add_pine(inlet_cluster, "InletLeaningPine04", PINE_LEANING, Vector3(20.1, 0.0, -1.1), Vector3(0.42, 0.42, 0.42), -0.2)
 	_add_pine(inlet_cluster, "InletStandardPine06", PINE_STANDARD, Vector3(23.0, 0.0, -0.65), Vector3(0.38, 0.38, 0.38), 0.07)
 	_add_pine(inlet_cluster, "InletLandmarkPine04", PINE_LANDMARK, Vector3(26.0, 0.0, 0.8), Vector3(0.33, 0.33, 0.33), -0.12)
+
+
+func _build_cottage_back_forest(parent: Node3D) -> void:
+	# Four staggered bands make the cottage's inland side feel forested without
+	# becoming a repeated wall. This remains distant visual dressing only.
+	var forest := Node3D.new()
+	forest.name = COTTAGE_BACK_FOREST_NAME
+	forest.set_meta("interactive", false)
+	parent.add_child(forest)
+	for row in 4:
+		for column in 11:
+			var index := row * 11 + column
+			var scene: PackedScene = PINE_STANDARD
+			var variant := "Standard"
+			if index % 7 == 0:
+				scene = PINE_LANDMARK
+				variant = "Landmark"
+			elif index % 3 == 0:
+				scene = PINE_LEANING
+				variant = "Leaning"
+			var stagger := -1.25 if row % 2 == 0 else 1.25
+			var lateral_drift := sin(float(index) * 1.73) * 2.15
+			var depth_drift := cos(float(index) * 0.91) * 2.65
+			var position := Vector3(-35.0 + float(column) * 7.0 + stagger + lateral_drift, 0.0, -13.0 - float(row) * 8.2 + depth_drift)
+			var size := 0.31 + float((index * 5) % 7) * 0.035
+			_add_pine(forest, "BackForest%s%02d" % [variant, index], scene, position, Vector3(size, size, size), -0.24 + float((index * 3) % 9) * 0.06)
 
 
 func _build_far_bank_dressing() -> void:
