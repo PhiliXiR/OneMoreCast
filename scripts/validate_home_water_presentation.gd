@@ -52,6 +52,9 @@ func _run_validation() -> void:
 	if presentation.get_node_or_null("ProceduralInletDressing/InletReed00") == null or presentation.get_node_or_null("ProceduralRockyFarBank/FarBankRock00") == null:
 		_fail("Inlet and far-bank fishing implications need distinct procedural dressing")
 		return
+	if not presentation.has_layered_far_horizon():
+		_fail("Home water needs the approved Pine kit to compose its far-bank tree line")
+		return
 	if world.get_node_or_null("HomeWater/VegetatedInlet") == null or world.get_node_or_null("HomeWater/DeepRockyFarBank") == null:
 		_fail("Existing named micro-habitat anchors must remain available to fishing conditions")
 		return

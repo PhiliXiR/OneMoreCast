@@ -25,12 +25,17 @@ const ROWBOAT_NAME := "MooringRowboat"
 const WEST_BUOY_NAME := "MarkerBuoyWest"
 const EAST_BUOY_NAME := "MarkerBuoyEast"
 const FAR_BANK_NAME := "FarBankSilhouette"
+const PINE_TREE_LINE_NAME := "PineTreeLine"
+const PINE_TREE_LINE_VIEW_ANCHOR_NAME := "TreeLineViewAnchor"
 const WATERSHED_MARKER_NAME := "WatershedSurveyMarker"
 const FAR_HORIZON_POSITION := Vector3(0.0, 0.0, 31.0)
 const FAR_HORIZON_WIDTH := 180.0
 const ENVIRONMENTAL_LIFE_NAME := "EnvironmentalLife"
 const REDUCED_MOTION_SETTING := "accessibility/reduce_motion"
 const HOME_COTTAGE_EXTERIOR := preload("res://assets/props/home_cottage/home_cottage_exterior_shell.glb")
+const PINE_LANDMARK := preload("res://assets/foliage/home_water_pine_landmark.glb")
+const PINE_STANDARD := preload("res://assets/foliage/home_water_pine_standard.glb")
+const PINE_LEANING := preload("res://assets/foliage/home_water_pine_leaning.glb")
 
 var _shore_collision_count := 0
 var _environment_elapsed := 0.0
@@ -105,9 +110,13 @@ func has_open_fishable_water() -> bool:
 
 func has_layered_far_horizon() -> bool:
 	var horizon := get_node_or_null(FAR_BANK_NAME) as Node3D
-	if horizon == null or horizon.get_child_count() < 3:
+	var tree_line := horizon.get_node_or_null(PINE_TREE_LINE_NAME) as Node3D if horizon != null else null
+	if tree_line == null or tree_line.get_child_count() < 8:
 		return false
-	return horizon.get_node_or_null(WATERSHED_MARKER_NAME) != null
+	return tree_line.get_node_or_null("LandmarkPine") != null \
+		and tree_line.get_node_or_null("StandardPine") != null \
+		and tree_line.get_node_or_null("LeaningPine") != null \
+		and horizon.get_node_or_null(WATERSHED_MARKER_NAME) != null
 
 
 func _build_shoreline() -> void:
@@ -281,11 +290,29 @@ func _build_far_horizon() -> void:
 	_add_box(horizon, "DistantShore", Vector3(0.0, 1.0, 0.8), Vector3(FAR_HORIZON_WIDTH, 2.0, 1.6), Color("#253d3b"))
 	_add_box(horizon, "NearTreeLine", Vector3(-1.4, 2.25, -0.35), Vector3(FAR_HORIZON_WIDTH - 4.0, 1.25, 0.8), Color("#1c332f"))
 	_add_box(horizon, "HighRidge", Vector3(5.0, 3.15, 1.55), Vector3(15.0, 1.35, 0.7), Color("#304243"))
-	for index in 17:
-		var x := -12.5 + float(index) * 1.55
-		var height := 2.7 + float(index % 4) * 0.5
-		var tree := _add_cylinder(horizon, "FarTree%02d" % index, Vector3(x, height * 0.5, -0.95 + sin(float(index) * 1.7) * 0.22), 0.2 + float(index % 3) * 0.045, height, Color("#172d2c"))
-		tree.rotation.z = sin(float(index) * 0.8) * 0.055
+	# The approved Pine kit replaces the temporary cylinder tree treatment. The
+	# staggered instances form an inaccessible tree line, rather than a row of
+	# individual destinations; they deliberately have no collision or prompts.
+	var tree_line := Node3D.new()
+	tree_line.name = PINE_TREE_LINE_NAME
+	tree_line.set_meta("interactive", false)
+	horizon.add_child(tree_line)
+	# This semantic anchor lets presentation validation verify the assembled tree
+	# line remains in fishing views without coupling that check to a kit mesh's
+	# internal transform hierarchy.
+	var view_anchor := Marker3D.new()
+	view_anchor.name = PINE_TREE_LINE_VIEW_ANCHOR_NAME
+	view_anchor.position = Vector3(0.0, 3.1, -0.95)
+	tree_line.add_child(view_anchor)
+	_add_pine(tree_line, "LandmarkPine", PINE_LANDMARK, Vector3(-10.8, 0.0, -1.2), Vector3(0.66, 0.66, 0.66), -0.07)
+	_add_pine(tree_line, "StandardPine", PINE_STANDARD, Vector3(-8.2, 0.0, -0.75), Vector3(0.72, 0.72, 0.72), 0.04)
+	_add_pine(tree_line, "LeaningPine", PINE_LEANING, Vector3(-5.6, 0.0, -1.38), Vector3(0.86, 0.86, 0.86), -0.14)
+	_add_pine(tree_line, "StandardPine02", PINE_STANDARD, Vector3(-3.1, 0.0, -0.82), Vector3(0.67, 0.67, 0.67), -0.03)
+	_add_pine(tree_line, "LeaningPine02", PINE_LEANING, Vector3(-0.8, 0.0, -1.34), Vector3(0.82, 0.82, 0.82), 0.11)
+	_add_pine(tree_line, "LandmarkPine02", PINE_LANDMARK, Vector3(2.0, 0.0, -0.72), Vector3(0.61, 0.61, 0.61), 0.06)
+	_add_pine(tree_line, "StandardPine03", PINE_STANDARD, Vector3(4.7, 0.0, -1.28), Vector3(0.69, 0.69, 0.69), -0.08)
+	_add_pine(tree_line, "LeaningPine03", PINE_LEANING, Vector3(8.9, 0.0, -0.78), Vector3(0.88, 0.88, 0.88), 0.18)
+	_add_pine(tree_line, "StandardPine04", PINE_STANDARD, Vector3(11.8, 0.0, -1.25), Vector3(0.64, 0.64, 0.64), 0.02)
 
 	# An old watershed survey marker is intentionally small and unlit: it reads
 	# as a question on the horizon, never as a destination or active objective.
@@ -297,6 +324,21 @@ func _build_far_horizon() -> void:
 	_add_cylinder(marker, "WeatheredMast", Vector3.ZERO, 0.075, 2.15, Color("#665f4c"))
 	_add_box(marker, "SurveyCrossbar", Vector3(0.0, 0.72, 0.0), Vector3(0.86, 0.07, 0.07), Color("#665f4c"))
 	_add_disc(marker, "MarkerCap", Vector3(0.0, 1.12, 0.0), 0.16, Color("#8b7c54"))
+
+
+func _add_pine(parent: Node3D, node_name: String, packed_scene: PackedScene, position: Vector3, scale: Vector3, yaw: float) -> void:
+	var pine := packed_scene.instantiate() as Node3D
+	if pine == null:
+		push_error("Approved Pine kit asset could not load: %s" % node_name)
+		return
+	pine.name = node_name
+	pine.position = position
+	pine.scale = scale
+	pine.rotation.y = yaw
+	pine.set_meta("interactive", false)
+	pine.set_meta("approved_asset", true)
+	pine.set_meta("asset_path", packed_scene.resource_path)
+	parent.add_child(pine)
 
 
 func _build_environmental_life() -> void:

@@ -5,7 +5,12 @@ const HORIZON_LOOK_TARGET := Vector3(0.0, 2.0, 31.0)
 const OPENING_VIEWPOINT := Vector3(0.0, 1.55, -2.0)
 const FISHING_VIEWPOINTS := [OPENING_VIEWPOINT, Vector3(-1.7, 1.55, 2.5), Vector3(1.8, 1.55, 2.5)]
 const SCREEN_EDGE_MARGIN_PX := 12.0
-const SILHOUETTE_NODES := ["DistantShore", "NearTreeLine", "HighRidge"]
+const SHORE_SILHOUETTE_NODES := ["DistantShore", "NearTreeLine", "HighRidge"]
+const REQUIRED_PINE_VARIANT_PATHS := {
+	"LandmarkPine": "res://assets/foliage/home_water_pine_landmark.glb",
+	"StandardPine": "res://assets/foliage/home_water_pine_standard.glb",
+	"LeaningPine": "res://assets/foliage/home_water_pine_leaning.glb",
+}
 const MIN_WATER_LUMINANCE_SEPARATION := 0.06
 const MIN_FOG_LUMINANCE_SEPARATION := 0.2
 # Matches the lake shader's authored deep_color default. Shader defaults are
@@ -34,6 +39,19 @@ func _run_validation() -> void:
 	if horizon.get_meta("interactive", true) or _has_collision_shape(horizon):
 		_fail("Far-bank horizon must remain non-interactive dressing")
 		return
+	var tree_line := horizon.get_node_or_null(HomeWaterPresentation.PINE_TREE_LINE_NAME) as Node3D
+	if tree_line == null or tree_line.get_meta("interactive", true) or _has_collision_shape(tree_line):
+		_fail("Approved Pine kit tree line must remain non-interactive dressing")
+		return
+	for variant_name in REQUIRED_PINE_VARIANT_PATHS:
+		var variant := tree_line.get_node_or_null(variant_name) as Node3D
+		if variant == null or not variant.get_meta("approved_asset", false) or variant.get_meta("asset_path", "") != REQUIRED_PINE_VARIANT_PATHS[variant_name] or variant.get_meta("interactive", true) or _has_collision_shape(variant):
+			_fail("Far-bank tree line must use approved non-interactive Pine kit variants")
+			return
+	var tree_line_view_anchor := tree_line.get_node_or_null(HomeWaterPresentation.PINE_TREE_LINE_VIEW_ANCHOR_NAME) as Marker3D
+	if tree_line_view_anchor == null:
+		_fail("Far-bank Pine kit needs a composition-level fishing-view anchor")
+		return
 	var marker := horizon.get_node_or_null(HomeWaterPresentation.WATERSHED_MARKER_NAME) as Node3D
 	if marker == null or marker.get_meta("interactive", true):
 		_fail("Watershed hint must remain a non-interactive distant landmark")
@@ -48,11 +66,14 @@ func _run_validation() -> void:
 	for viewpoint in FISHING_VIEWPOINTS:
 		camera.global_position = viewpoint
 		camera.look_at(HORIZON_LOOK_TARGET, Vector3.UP)
-		for silhouette_name in SILHOUETTE_NODES:
+		for silhouette_name in SHORE_SILHOUETTE_NODES:
 			var silhouette := horizon.get_node_or_null(silhouette_name) as Node3D
 			if silhouette == null or not _is_visible_in_camera(camera, silhouette.global_position, viewport_size):
 				_fail("Far-bank silhouette layers must be visible from likely fishing viewpoints")
 				return
+		if not _is_visible_in_camera(camera, tree_line_view_anchor.global_position, viewport_size):
+			_fail("Approved Pine kit tree line must remain visible from likely fishing viewpoints")
+			return
 		if not _is_visible_in_camera(camera, marker.global_position, viewport_size):
 			_fail("Watershed marker must remain a readable but distant horizon detail")
 			return
@@ -67,7 +88,7 @@ func _has_dawn_fog_contrast(world: Node, horizon: Node3D) -> bool:
 		_fail("Focused horizon validation needs the dawn environment and lake surface")
 		return false
 	var fog_color := environment_node.environment.fog_light_color
-	for silhouette_name in SILHOUETTE_NODES:
+	for silhouette_name in SHORE_SILHOUETTE_NODES:
 		var silhouette := horizon.get_node_or_null(silhouette_name) as MeshInstance3D
 		var material := silhouette.material_override as StandardMaterial3D if silhouette != null else null
 		if material == null:
