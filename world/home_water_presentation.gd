@@ -30,6 +30,7 @@ const FAR_HORIZON_POSITION := Vector3(0.0, 0.0, 31.0)
 const FAR_HORIZON_WIDTH := 180.0
 const ENVIRONMENTAL_LIFE_NAME := "EnvironmentalLife"
 const REDUCED_MOTION_SETTING := "accessibility/reduce_motion"
+const HOME_COTTAGE_EXTERIOR := preload("res://assets/props/home_cottage/home_cottage_exterior_shell.glb")
 
 var _shore_collision_count := 0
 var _environment_elapsed := 0.0
@@ -122,19 +123,18 @@ func _build_shoreline() -> void:
 
 
 func _build_cottage() -> void:
-	var cottage := Node3D.new()
-	cottage.name = "DocksideCottage"
+	var cottage := HOME_COTTAGE_EXTERIOR.instantiate() as Node3D
+	if cottage == null:
+		push_error("Approved Home Cottage exterior could not load")
+		return
+	cottage.name = "HomeCottageExterior"
 	cottage.position = Vector3(5.9, 0.0, -5.7)
 	cottage.set_meta("interactive", true)
+	cottage.set_meta("approved_asset", true)
 	add_child(cottage)
-	_add_box(cottage, "Walls", Vector3(0, 1.35, 0), Vector3(3.4, 2.7, 2.6), Color("#76513a"))
-	_add_box(cottage, "Roof", Vector3(0, 3.0, 0), Vector3(4.05, 0.46, 3.15), Color("#2d3037"), Vector3(0.0, 0.0, 0.0))
-	_add_box(cottage, "Porch", Vector3(-1.95, 0.3, 0.5), Vector3(0.85, 0.25, 1.55), Color("#543d2d"))
-	_add_box(cottage, "HomeCottageDoor", Vector3(-1.73, 1.25, 0.5), Vector3(0.08, 1.7, 0.72), Color("#3f2b20"))
-	_add_box(cottage, "PorchLamp", Vector3(-1.72, 2.35, 0.92), Vector3(0.12, 0.2, 0.12), WARM_WINDOW)
-	_add_window(cottage, "WarmWindowOne", Vector3(-1.73, 1.55, 0.35))
-	_add_window(cottage, "WarmWindowTwo", Vector3(-1.73, 1.55, -0.65))
-	_add_static_collision(cottage, "CottageCollision", Vector3(0, 1.35, 0), Vector3(3.4, 2.7, 2.6))
+	# The simple collision boundary keeps the exterior solid without recreating
+	# any temporary visible geometry around the approved asset.
+	_add_static_collision(cottage, "CottageCollision", Vector3(0, 1.35, 0), Vector3(6.3, 2.7, 5.3))
 
 
 func _build_dockside_foreground() -> void:

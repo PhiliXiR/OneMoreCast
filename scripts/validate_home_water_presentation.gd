@@ -41,9 +41,9 @@ func _run_validation() -> void:
 	if not presentation.has_natural_shore_collision():
 		_fail("Presentation must create natural shore collision")
 		return
-	var cottage := presentation.get_node_or_null("DocksideCottage") as Node3D
-	if cottage == null or not cottage.get_meta("interactive", false) or cottage.get_node_or_null("WarmWindowOne") == null or cottage.get_node_or_null("HomeCottageDoor") == null:
-		_fail("Dockside cottage must be warm, present, and expose its Home Cottage door")
+	var cottage := presentation.get_node_or_null("HomeCottageExterior") as Node3D
+	if cottage == null or not cottage.get_meta("approved_asset", false) or presentation.get_node_or_null("DocksideCottage") != null:
+		_fail("Home Cottage exterior must use the approved asset, not the temporary procedural cottage")
 		return
 	if presentation.get_node_or_null("ProceduralInletDressing/InletReed00") == null or presentation.get_node_or_null("ProceduralRockyFarBank/FarBankRock00") == null:
 		_fail("Inlet and far-bank fishing implications need distinct procedural dressing")

@@ -12,7 +12,7 @@ extends Node3D
 @export var reduced_motion := false
 
 const REDUCED_MOTION_SETTING := "accessibility/reduce_motion"
-const PORCH_POSITION := Vector3(3.25, 0.12, -5.15)
+const PORCH_POSITION := Vector3(5.9, 0.12, -9.25)
 const INTERIOR_ORIGIN := Vector3(28.0, 0.0, -200.0)
 const INTERIOR_ENTRY := INTERIOR_ORIGIN + Vector3(0.0, 0.12, 1.9)
 const INTERIOR_EXIT := INTERIOR_ORIGIN + Vector3(0.0, 0.12, -2.45)
