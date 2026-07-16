@@ -365,7 +365,8 @@ func _build_cottage_back_forest(parent: Node3D) -> void:
 			var lateral_drift := sin(float(index) * 1.73) * 2.15
 			var depth_drift := cos(float(index) * 0.91) * 2.65
 			var position := Vector3(-35.0 + float(column) * 7.0 + stagger + lateral_drift, 0.0, -13.0 - float(row) * 8.2 + depth_drift)
-			var size := 0.31 + float((index * 5) % 7) * 0.035
+			# Inland canopy deliberately rises above the near-shore framing trees.
+			var size := 0.72 + float((index * 5) % 7) * 0.055
 			_add_pine(forest, "BackForest%s%02d" % [variant, index], scene, position, Vector3(size, size, size), -0.24 + float((index * 3) % 9) * 0.06)
 
 

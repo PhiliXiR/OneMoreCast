@@ -18,6 +18,7 @@ const FAR_BANK_VIEWPOINT := Vector3(0.0, 1.55, -2.0)
 const FAR_BANK_LOOK_TARGET := Vector3(-8.5, 0.8, 2.4)
 const MIN_TREES_PER_CLUSTER := 14
 const MIN_BACK_FOREST_TREES := 44
+const MIN_BACK_FOREST_SCALE := 0.72
 
 
 func _initialize() -> void:
@@ -41,6 +42,7 @@ func _run_validation() -> void:
 	if clusters == null or clusters.get_meta("interactive", true) or _has_collision_shape(clusters):
 		_fail("Shore tree clusters must remain non-interactive scenery")
 		return
+	var largest_shore_tree_scale := 0.0
 	for cluster_name in [HomeWaterPresentation.COTTAGE_TREE_CLUSTER_NAME, HomeWaterPresentation.INLET_TREE_CLUSTER_NAME]:
 		var cluster := clusters.get_node_or_null(cluster_name) as Node3D
 		if cluster == null or cluster.get_meta("interactive", true) or _has_collision_shape(cluster):
@@ -49,18 +51,26 @@ func _run_validation() -> void:
 		if cluster.get_child_count() < MIN_TREES_PER_CLUSTER:
 			_fail("Shore tree clusters need a dense, uneven Pine kit composition")
 			return
+		for pine in cluster.get_children():
+			if pine is Node3D:
+				largest_shore_tree_scale = maxf(largest_shore_tree_scale, (pine as Node3D).scale.x)
 	var back_forest := clusters.get_node_or_null(HomeWaterPresentation.COTTAGE_BACK_FOREST_NAME) as Node3D
 	if back_forest == null or back_forest.get_meta("interactive", true) or _has_collision_shape(back_forest) or back_forest.get_child_count() < MIN_BACK_FOREST_TREES:
 		_fail("The cottage back shore needs a dense, non-interactive Pine kit forest")
 		return
 	var forest_variant_paths := {}
+	var smallest_back_forest_scale := INF
 	for pine in back_forest.get_children():
-		if not pine is Node3D or not pine.get_meta("approved_asset", false) or pine.get_meta("interactive", true) or _has_collision_shape(pine):
+		if not pine is Node3D or not pine.get_meta("approved_asset", false) or pine.get_meta("interactive", true) or pine.scale.x < MIN_BACK_FOREST_SCALE or _has_collision_shape(pine):
 			_fail("Every cottage back-forest pine must remain approved, non-interactive scenery")
 			return
 		forest_variant_paths[pine.get_meta("asset_path", "")] = true
+		smallest_back_forest_scale = minf(smallest_back_forest_scale, pine.scale.x)
 	if forest_variant_paths.size() != 3:
 		_fail("The cottage back forest must use every approved Pine kit variant")
+		return
+	if smallest_back_forest_scale <= largest_shore_tree_scale:
+		_fail("Every cottage back-forest pine must rise above the near-shore framing trees")
 		return
 	for pine_name in REQUIRED_VARIANT_PATHS:
 		var pine := clusters.find_child(pine_name, true, false) as Node3D
