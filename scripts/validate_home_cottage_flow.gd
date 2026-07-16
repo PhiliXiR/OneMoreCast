@@ -35,6 +35,26 @@ func _run_validation() -> void:
 	if float(camera.call("get_preferred_distance")) > 3.5:
 		_fail("Interior should use a closer camera profile")
 		return
+	if flow.get_node_or_null("HomeCottageInterior/WarmPracticalLight") == null or flow.get_node_or_null("HomeCottageInterior/MaraVale") == null:
+		_fail("Interior needs warm practical light and a visible Mara Vale")
+		return
+	player.global_position = flow.call("get_interior_interaction_position", "WritingDesk") as Vector3
+	flow.try_handle_interact()
+	if not casting_ui.get_node("FieldJournalMenu").visible:
+		_fail("The writing desk should open the established Field journal")
+		return
+	casting_ui.call("_close_field_journal")
+	casting_ui.call("record_observation", "fish sign", "A wake crossed the dock shallows.")
+	player.global_position = flow.call("get_interior_interaction_position", "MaraVale") as Vector3
+	flow.try_handle_interact()
+	if not casting_ui.get_node("HomePanel").visible or String(casting_ui.get_node("HomePanel/Scroll/Layout/CommunityLabel").text).find("Mara Vale") == -1:
+		_fail("Mara should open the established home-community return presentation")
+		return
+	var return_response := String(casting_ui.call("return_home_with_latest_observation", 0))
+	var conditions := casting_ui.call("get_current_fishing_conditions") as Dictionary
+	if not return_response.contains("Aunt Sable") or String(conditions.get("time_of_day", "")) != "late afternoon":
+		_fail("Mara's return presentation should retain community perspectives and advance time")
+		return
 	player.global_position = INTERIOR_EXIT
 	flow.try_handle_interact()
 	await create_timer(0.3).timeout

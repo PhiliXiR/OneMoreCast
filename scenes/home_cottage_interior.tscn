@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [sub_resource type="BoxMesh" id="FloorMesh"]
 size = Vector3(6.4, 0.16, 5.8)
@@ -22,6 +22,9 @@ size = Vector3(0.55, 1.7, 0.28)
 size = Vector3(0.55, 1.7, 0.28)
 [sub_resource type="BoxMesh" id="WindowMesh"]
 size = Vector3(1.1, 0.7, 0.03)
+[sub_resource type="SphereMesh" id="SphereMesh"]
+radius = 0.24
+height = 0.48
 [sub_resource type="StandardMaterial3D" id="WoodMaterial"]
 albedo_color = Color(0.463, 0.318, 0.227, 1)
 roughness = 0.9
@@ -73,13 +76,15 @@ position = Vector3(3.12, 1.55, 0)
 [node name="CollisionShape3D" type="CollisionShape3D" parent="RightWallCollision"]
 shape = SubResource("SideWallShape")
 
-[node name="Table" type="MeshInstance3D" parent="."]
+[node name="WritingDesk" type="MeshInstance3D" parent="."]
+metadata/interaction = "field_journal"
+metadata/display_name = "Writing desk"
 position = Vector3(-1.2, 0.72, 0.5)
 mesh = SubResource("TableMesh")
 material_override = SubResource("DarkWoodMaterial")
-[node name="TableCollision" type="StaticBody3D" parent="."]
+[node name="WritingDeskCollision" type="StaticBody3D" parent="."]
 position = Vector3(-1.2, 0.72, 0.5)
-[node name="CollisionShape3D" type="CollisionShape3D" parent="TableCollision"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WritingDeskCollision"]
 shape = SubResource("TableShape")
 
 [node name="JournalShelf" type="MeshInstance3D" parent="."]
@@ -94,4 +99,26 @@ shape = SubResource("ShelfShape")
 [node name="WarmWindow" type="MeshInstance3D" parent="."]
 position = Vector3(0, 1.75, 2.73)
 mesh = SubResource("WindowMesh")
+material_override = SubResource("WindowMaterial")
+
+[node name="WarmPracticalLight" type="OmniLight3D" parent="."]
+position = Vector3(-0.25, 2.45, 0.2)
+light_color = Color(1, 0.68, 0.38, 1)
+light_energy = 2.05
+omni_range = 7.5
+shadow_enabled = true
+
+[node name="MaraVale" type="Node3D" parent="."]
+position = Vector3(1.55, 0.0, -0.25)
+metadata/interaction = "home_community_return"
+metadata/display_name = "Mara Vale"
+
+[node name="Body" type="MeshInstance3D" parent="MaraVale"]
+position = Vector3(0, 0.9, 0)
+mesh = SubResource("ShelfMesh")
+material_override = SubResource("DarkWoodMaterial")
+
+[node name="Head" type="MeshInstance3D" parent="MaraVale"]
+position = Vector3(0, 1.9, 0)
+mesh = SubResource("SphereMesh")
 material_override = SubResource("WindowMaterial")

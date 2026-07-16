@@ -584,6 +584,37 @@ func _toggle_field_journal() -> void:
 	field_journal_menu.visible = true
 
 
+func open_field_journal_at_home_cottage() -> void:
+	# The writing desk is a physical way into the existing Field journal, not a
+	# separate home-storage or crafting surface.
+	if not field_journal_menu.visible:
+		_toggle_field_journal()
+
+
+func open_home_community_return_presentation() -> void:
+	# Mara opens the established community presentation so its existing
+	# dispositions continue to own the outcome and time advance.
+	if field_journal_menu.visible:
+		_close_field_journal()
+	_update_home_community_view()
+	var latest := field_journal.latest()
+	return_home_button.disabled = latest.is_empty()
+	retain_observation_button.disabled = latest.is_empty()
+	if latest.is_empty():
+		community_label.text += "\n\nMara needs an Observation from the home water before the return conversation can begin."
+	else:
+		var catch_option := "use a catch to help Mara" if not help_mara_button.disabled else "bring a catch to help Mara on a later return"
+		community_label.text += "\n\nLatest Observation: %s\nChoose whether to share it, retain it, or %s." % [
+			String(latest.get("detail", "")),
+			catch_option,
+		]
+	_show_drawer_section("community")
+
+
+func get_current_fishing_conditions() -> Dictionary:
+	return _provider_conditions().duplicate(true)
+
+
 func _close_field_journal() -> void:
 	field_journal_menu.visible = false
 	_return_confirmation_pending = false

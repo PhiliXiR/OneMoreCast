@@ -25,6 +25,7 @@ var _transitioning := false
 var _outside_camera_distance := 6.0
 var _prompt: Label
 var _feedback: Label
+var _interior: Node3D
 
 
 func _ready() -> void:
@@ -43,6 +44,7 @@ func _process(_delta: float) -> void:
 		# floor level explicit until the interior receives its authored terrain.
 		player.global_position.y = INTERIOR_ORIGIN.y + 0.12
 		player.velocity.y = 0.0
+	_update_interior_lighting()
 	_update_prompt()
 
 
@@ -52,6 +54,12 @@ func try_handle_interact() -> bool:
 	if _inside:
 		if _is_near(INTERIOR_EXIT):
 			_return_to_porch()
+			return true
+		if _is_near_interior_node("WritingDesk"):
+			_open_field_journal()
+			return true
+		if _is_near_interior_node("MaraVale"):
+			_open_mara_return_presentation()
 			return true
 		return false
 	if not is_near_home_cottage():
@@ -84,6 +92,16 @@ func _is_fishing_settled() -> bool:
 
 func _is_near(position: Vector3) -> bool:
 	return player != null and player.global_position.distance_to(position) <= interaction_radius
+
+
+func _is_near_interior_node(node_name: String) -> bool:
+	var target := _interior.get_node_or_null(NodePath(node_name)) as Node3D if _interior != null else null
+	return target != null and _is_near(target.global_position)
+
+
+func get_interior_interaction_position(node_name: String) -> Vector3:
+	var target := _interior.get_node_or_null(NodePath(node_name)) as Node3D if _interior != null else null
+	return target.global_position if target != null else Vector3.INF
 
 
 func _enter_interior() -> void:
@@ -137,6 +155,12 @@ func _update_prompt() -> void:
 	elif _inside and _is_near(INTERIOR_EXIT):
 		_prompt.text = "E  Return to porch"
 		_prompt.visible = true
+	elif _inside and _is_near_interior_node("WritingDesk"):
+		_prompt.text = "E  Read Field journal at writing desk"
+		_prompt.visible = true
+	elif _inside and _is_near_interior_node("MaraVale"):
+		_prompt.text = "E  Speak with Mara Vale"
+		_prompt.visible = true
 	elif not _inside and _is_near(PORCH_POSITION):
 		_prompt.text = "E  Enter Home Cottage" if _is_fishing_settled() else "E  Home Cottage — settle the line first"
 		_prompt.visible = true
@@ -175,11 +199,38 @@ func _build_hud() -> void:
 	layer.add_child(_feedback)
 
 
+func _open_field_journal() -> void:
+	if casting_ui != null and casting_ui.has_method("open_field_journal_at_home_cottage"):
+		casting_ui.call("open_field_journal_at_home_cottage")
+		_show_feedback("The writing desk opens your Field journal.")
+
+
+func _open_mara_return_presentation() -> void:
+	if casting_ui != null and casting_ui.has_method("open_home_community_return_presentation"):
+		casting_ui.call("open_home_community_return_presentation")
+		_show_feedback("Mara listens. Choose how to share the latest observation.")
+
+
+func _update_interior_lighting() -> void:
+	if _interior == null or casting_ui == null or not casting_ui.has_method("get_current_fishing_conditions"):
+		return
+	var conditions := casting_ui.call("get_current_fishing_conditions") as Dictionary
+	var late_afternoon := String(conditions.get("time_of_day", "early morning")) == "late afternoon"
+	var practical_light := _interior.get_node_or_null("WarmPracticalLight") as OmniLight3D
+	if practical_light != null:
+		practical_light.light_energy = 1.45 if late_afternoon else 2.05
+	var window := _interior.get_node_or_null("WarmWindow") as MeshInstance3D
+	if window != null and window.material_override is StandardMaterial3D:
+		var material := window.material_override as StandardMaterial3D
+		material.albedo_color = Color("#d99a62") if late_afternoon else Color("#9fc6da")
+		material.emission = material.albedo_color
+
+
 func _load_interior() -> void:
 	var packed_interior := load("res://scenes/home_cottage_interior.tscn") as PackedScene
 	if packed_interior == null:
 		push_error("Home Cottage interior scene could not load")
 		return
-	var room := packed_interior.instantiate() as Node3D
-	room.position = INTERIOR_ORIGIN
-	add_child(room)
+	_interior = packed_interior.instantiate() as Node3D
+	_interior.position = INTERIOR_ORIGIN
+	add_child(_interior)
