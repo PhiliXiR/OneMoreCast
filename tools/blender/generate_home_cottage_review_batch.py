@@ -83,14 +83,30 @@ def cylinder(name, loc, radius, depth, mat, target, vertices=10):
     return move_to(obj, target)
 
 
+def gable_end(name, y, mat, target):
+    """Create a thin triangular wall that closes one end beneath the gable roof."""
+    thickness = 0.09
+    vertices = [
+        (-3.0, y - thickness, 2.45), (3.0, y - thickness, 2.45), (0.0, y - thickness, 4.35),
+        (-3.0, y + thickness, 2.45), (3.0, y + thickness, 2.45), (0.0, y + thickness, 4.35),
+    ]
+    faces = [(0, 1, 2), (3, 5, 4), (0, 3, 4, 1), (1, 4, 5, 2), (2, 5, 3, 0)]
+    mesh = bpy.data.meshes.new(name + "_Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(mat)
+    obj = bpy.data.objects.new(name, mesh)
+    target.objects.link(obj)
+    return obj
+
+
 # Exterior: X is the six-metre frontage, Y faces the dock/porch.
 cube("Exterior_Foundation", (0, 0, 0.15), (3.15, 2.65, 0.15), BRASS, EXTERIOR, 0.04)
 for x in (-3.0, -1.5, 1.5, 3.0):
     for y in (-2.5, 2.5):
-        cube("Exterior_Wall_Plank", (x, y, 1.65), (0.70, 0.10, 1.35), WOOD, EXTERIOR, 0.03)
+        cube("Exterior_Wall_Plank", (x, y, 1.25), (0.70, 0.10, 1.20), WOOD, EXTERIOR, 0.03)
 for y in (-1.5, 0, 1.5):
-    cube("Exterior_Side_Wall_West", (-3.0, y, 1.65), (0.10, 0.65, 1.35), WOOD, EXTERIOR, 0.03)
-    cube("Exterior_Side_Wall_East", (3.0, y, 1.65), (0.10, 0.65, 1.35), WOOD, EXTERIOR, 0.03)
+    cube("Exterior_Side_Wall_West", (-3.0, y, 1.25), (0.10, 0.65, 1.20), WOOD, EXTERIOR, 0.03)
+    cube("Exterior_Side_Wall_East", (3.0, y, 1.25), (0.10, 0.65, 1.20), WOOD, EXTERIOR, 0.03)
 cube("Exterior_Porch_Deck", (0, -3.15, 0.4), (2.4, 0.7, 0.12), WOOD_LIGHT, EXTERIOR, 0.04)
 for x in (-2.1, 2.1):
     cylinder("Exterior_Porch_Post", (x, -3.65, 1.75), 0.10, 2.7, WOOD_LIGHT, EXTERIOR)
@@ -99,8 +115,8 @@ cube("Exterior_Single_Porch_Door", (0, -2.49, 1.45), (0.48, 0.06, 1.15), WOOD_LI
 cylinder("Exterior_Door_Handle", (0.32, -2.72, 1.45), 0.045, 0.06, BRASS, EXTERIOR, 8).rotation_euler = (math.pi / 2, 0, 0)
 for x in (-1.7, 1.7):
     cube("Exterior_Warm_Window", (x, -2.61, 1.85), (0.48, 0.06, 0.48), WINDOW, EXTERIOR, 0.02)
-for x in (-2.2, 2.2):
-    cube("Exterior_Gable", (x, 0, 3.15), (0.78, 2.5, 0.45), WOOD, EXTERIOR, 0.03)
+gable_end("Exterior_Dock_Facing_Gable_End", -2.81, WOOD, EXTERIOR)
+gable_end("Exterior_Lakeside_Gable_End", 2.81, WOOD, EXTERIOR)
 roof_left = cube("Exterior_Dark_Gable_Roof_West", (-1.62, 0, 3.45), (1.95, 2.90, 0.16), ROOF, EXTERIOR, 0.03)
 roof_left.rotation_euler = (0, -0.48, 0)
 roof_right = cube("Exterior_Dark_Gable_Roof_East", (1.62, 0, 3.45), (1.95, 2.90, 0.16), ROOF, EXTERIOR, 0.03)
