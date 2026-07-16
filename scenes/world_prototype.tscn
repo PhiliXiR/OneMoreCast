@@ -1,4 +1,4 @@
-[gd_scene load_steps=38 format=3 uid="uid://one_more_cast_world_prototype"]
+[gd_scene load_steps=39 format=3 uid="uid://one_more_cast_world_prototype"]
 
 [ext_resource type="PackedScene" path="res://player/PlayerRig.tscn" id="1_player"]
 [ext_resource type="Script" path="res://tools/3DCodexPipeline/game/systems/camera/scripts/mmo_camera_controller.gd" id="2_camera"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://world/home_water_provider.gd" id="8_home_water"]
 [ext_resource type="Script" path="res://world/home_water_presentation.gd" id="9_home_water_presentation"]
 [ext_resource type="Script" path="res://scripts/cinematic_water_lens.gd" id="10_water_lens"]
+[ext_resource type="Script" path="res://world/home_cottage_flow.gd" id="11_cottage_flow"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_dawn"]
 sky_top_color = Color(0.18, 0.28, 0.46, 1)
@@ -336,6 +337,12 @@ water_lens_path = NodePath("../CinematicWaterLens")
 home_water_provider_path = NodePath("../HomeWater")
 water_center = Vector3(0, 0, 402)
 water_size = Vector2(120, 800)
+
+[node name="HomeCottageFlow" type="Node3D" parent="."]
+script = ExtResource("11_cottage_flow")
+player_path = NodePath("../PlayerRig")
+camera_path = NodePath("../MMOCameraRig")
+casting_ui_path = NodePath("../CastingUILayer/CastingUI")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.819152, -0.40558, 0.40558, 0, 0.707107, 0.707107, -0.573576, -0.579228, 0.579228, 0, 7, -3)

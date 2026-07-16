@@ -177,6 +177,14 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed(&"set_hook"):
+		var cottage_flow := get_tree().get_first_node_in_group(&"home_cottage_flow")
+		if cottage_flow != null and cottage_flow.has_method("try_handle_interact") and cottage_flow.call("try_handle_interact"):
+			get_viewport().set_input_as_handled()
+			return
+		if cottage_flow != null and cottage_flow.has_method("is_near_home_cottage") and cottage_flow.call("is_near_home_cottage") and cottage_flow.has_method("show_entry_blocked_feedback") and not is_settled_for_home_cottage():
+			# Fishing keeps its own E-action behaviour during a live cast, bite, or
+			# fight. The Cottage adds feedback without swallowing that control.
+			cottage_flow.call("show_entry_blocked_feedback")
 		if state == CastState.REELING: set_reel_held(true)
 		else: _on_action_pressed()
 	elif event.is_action_released(&"set_hook") and state == CastState.REELING:
@@ -827,6 +835,13 @@ func get_available_return_dispositions() -> Array[int]:
 
 func get_player_message() -> String:
 	return message_label.text
+
+
+func is_settled_for_home_cottage() -> bool:
+	# A ready rod is the only safe moment to leave the water. Keeping this
+	# predicate here lets the Home Cottage own routing without duplicating
+	# fishing's transient-state knowledge.
+	return state == CastState.READY and not field_journal_menu.visible and not outcome_card.visible
 
 
 func _context() -> String: return _provider_string("get_result_context", "Landing quality: baseline")

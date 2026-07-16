@@ -1,0 +1,97 @@
+[gd_scene load_steps=15 format=3]
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+size = Vector3(6.4, 0.16, 5.8)
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(6.4, 0.16, 5.8)
+[sub_resource type="BoxMesh" id="BackWallMesh"]
+size = Vector3(6.4, 3.1, 0.16)
+[sub_resource type="BoxShape3D" id="BackWallShape"]
+size = Vector3(6.4, 3.1, 0.16)
+[sub_resource type="BoxMesh" id="SideWallMesh"]
+size = Vector3(0.16, 3.1, 5.8)
+[sub_resource type="BoxShape3D" id="SideWallShape"]
+size = Vector3(0.16, 3.1, 5.8)
+[sub_resource type="BoxMesh" id="TableMesh"]
+size = Vector3(1.5, 0.85, 0.8)
+[sub_resource type="BoxShape3D" id="TableShape"]
+size = Vector3(1.5, 0.85, 0.8)
+[sub_resource type="BoxMesh" id="ShelfMesh"]
+size = Vector3(0.55, 1.7, 0.28)
+[sub_resource type="BoxShape3D" id="ShelfShape"]
+size = Vector3(0.55, 1.7, 0.28)
+[sub_resource type="BoxMesh" id="WindowMesh"]
+size = Vector3(1.1, 0.7, 0.03)
+[sub_resource type="StandardMaterial3D" id="WoodMaterial"]
+albedo_color = Color(0.463, 0.318, 0.227, 1)
+roughness = 0.9
+[sub_resource type="StandardMaterial3D" id="DarkWoodMaterial"]
+albedo_color = Color(0.247, 0.169, 0.125, 1)
+roughness = 0.9
+[sub_resource type="StandardMaterial3D" id="WindowMaterial"]
+albedo_color = Color(1, 0.741, 0.439, 1)
+emission_enabled = true
+emission = Color(1, 0.741, 0.439, 1)
+emission_energy_multiplier = 1.2
+
+[node name="HomeCottageInterior" type="Node3D"]
+metadata/roofless = true
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.08, 0)
+mesh = SubResource("FloorMesh")
+material_override = SubResource("WoodMaterial")
+[node name="FloorCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.08, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorCollision"]
+shape = SubResource("FloorShape")
+
+[node name="BackWall" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.55, 2.85)
+mesh = SubResource("BackWallMesh")
+material_override = SubResource("WoodMaterial")
+[node name="BackWallCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 1.55, 2.85)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BackWallCollision"]
+shape = SubResource("BackWallShape")
+
+[node name="LeftWall" type="MeshInstance3D" parent="."]
+position = Vector3(-3.12, 1.55, 0)
+mesh = SubResource("SideWallMesh")
+material_override = SubResource("WoodMaterial")
+[node name="LeftWallCollision" type="StaticBody3D" parent="."]
+position = Vector3(-3.12, 1.55, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LeftWallCollision"]
+shape = SubResource("SideWallShape")
+
+[node name="RightWall" type="MeshInstance3D" parent="."]
+position = Vector3(3.12, 1.55, 0)
+mesh = SubResource("SideWallMesh")
+material_override = SubResource("WoodMaterial")
+[node name="RightWallCollision" type="StaticBody3D" parent="."]
+position = Vector3(3.12, 1.55, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RightWallCollision"]
+shape = SubResource("SideWallShape")
+
+[node name="Table" type="MeshInstance3D" parent="."]
+position = Vector3(-1.2, 0.72, 0.5)
+mesh = SubResource("TableMesh")
+material_override = SubResource("DarkWoodMaterial")
+[node name="TableCollision" type="StaticBody3D" parent="."]
+position = Vector3(-1.2, 0.72, 0.5)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TableCollision"]
+shape = SubResource("TableShape")
+
+[node name="JournalShelf" type="MeshInstance3D" parent="."]
+position = Vector3(1.75, 1.1, 1.8)
+mesh = SubResource("ShelfMesh")
+material_override = SubResource("DarkWoodMaterial")
+[node name="JournalShelfCollision" type="StaticBody3D" parent="."]
+position = Vector3(1.75, 1.1, 1.8)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="JournalShelfCollision"]
+shape = SubResource("ShelfShape")
+
+[node name="WarmWindow" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.75, 2.73)
+mesh = SubResource("WindowMesh")
+material_override = SubResource("WindowMaterial")
