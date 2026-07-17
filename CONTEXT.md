@@ -60,6 +60,12 @@ far bank that frames the home water and suggests its compact edge without
 acting as the physical traversal boundary.
 _Avoid_: Invisible wall, fence, map border
 
+**Mountain backdrop**:
+The restrained, layered low-poly mountain silhouettes beyond the tree line that
+encircle the home water, give it a recognizable basin and regional identity,
+and visually contain the world without adding collision or a traversal rule.
+_Avoid_: Playable range, collision wall, dramatic vista set piece
+
 **Pine kit**:
 The small family of compatible, weathered low-poly pine variants used to
 compose the tree line: a tall landmark pine, a standard pine, and a smaller or
