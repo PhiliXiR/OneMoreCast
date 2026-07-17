@@ -1,6 +1,25 @@
 extends SceneTree
 
 const WORLD_SCENE := "res://scenes/world_prototype.tscn"
+const REQUIRED_MOUNTAIN_SEGMENTS := {
+	"NorthRidge": "res://assets/props/home_water/mountains/home_water_mountain_north_ridge.glb",
+	"EastSaddle": "res://assets/props/home_water/mountains/home_water_mountain_east_saddle.glb",
+	"SouthBench": "res://assets/props/home_water/mountains/home_water_mountain_south_bench.glb",
+	"WestShoulder": "res://assets/props/home_water/mountains/home_water_mountain_west_shoulder.glb",
+}
+const REQUIRED_MOUNTAIN_COMPASS := {
+	"NorthRidge": "north",
+	"EastSaddle": "east",
+	"SouthBench": "south",
+	"WestShoulder": "west",
+}
+const MOUNTAIN_VIEW_DIRECTIONS := {
+	"North": Vector3.BACK,
+	"East": Vector3.RIGHT,
+	"South": Vector3.FORWARD,
+	"West": Vector3.LEFT,
+}
+const MIN_MOUNTAIN_BACKDROP_RADIUS := 32.0
 
 
 func _initialize() -> void:
@@ -55,6 +74,31 @@ func _run_validation() -> void:
 	if not presentation.has_layered_far_horizon():
 		_fail("Home water needs the approved Pine kit to compose its far-bank tree line")
 		return
+	if not presentation.has_mountain_backdrop():
+		_fail("Home water needs the approved static mountain backdrop beyond the Tree line")
+		return
+	var mountain_backdrop := presentation.get_node_or_null(HomeWaterPresentation.MOUNTAIN_BACKDROP_NAME) as Node3D
+	if mountain_backdrop == null or mountain_backdrop.get_meta("interactive", true) or _has_collision_shape(mountain_backdrop):
+		_fail("Mountain backdrop must remain non-interactive scenery")
+		return
+	for segment_name in REQUIRED_MOUNTAIN_SEGMENTS:
+		var segment := mountain_backdrop.get_node_or_null(segment_name) as Node3D
+		if segment == null or not segment.get_meta("approved_asset", false) or segment.get_meta("asset_path", "") != REQUIRED_MOUNTAIN_SEGMENTS[segment_name] or segment.get_meta("compass", "") != REQUIRED_MOUNTAIN_COMPASS[segment_name] or segment.get_meta("interactive", true) or _has_collision_shape(segment):
+			_fail("Mountain backdrop must use each approved compass segment without gameplay state")
+			return
+	var mountain_anchors := mountain_backdrop.get_node_or_null(HomeWaterPresentation.MOUNTAIN_BACKDROP_ANCHORS_NAME) as Node3D
+	if mountain_anchors == null or mountain_anchors.get_meta("interactive", true):
+		_fail("Mountain backdrop needs stable cardinal composition anchors")
+		return
+	for anchor_name in MOUNTAIN_VIEW_DIRECTIONS:
+		var anchor := mountain_anchors.get_node_or_null(anchor_name) as Marker3D
+		if anchor == null:
+			_fail("Mountain backdrop needs its %s cardinal view anchor" % anchor_name)
+			return
+		var horizontal_position := Vector3(anchor.position.x, 0.0, anchor.position.z)
+		if horizontal_position.length() < MIN_MOUNTAIN_BACKDROP_RADIUS or horizontal_position.normalized().dot(MOUNTAIN_VIEW_DIRECTIONS[anchor_name]) < 0.95:
+			_fail("Mountain backdrop cardinal anchors must preserve the all-around basin composition")
+			return
 	if world.get_node_or_null("HomeWater/VegetatedInlet") == null or world.get_node_or_null("HomeWater/DeepRockyFarBank") == null:
 		_fail("Existing named micro-habitat anchors must remain available to fishing conditions")
 		return
@@ -126,6 +170,15 @@ func _has_edge_free_world_scale(world: Node) -> bool:
 		_fail("Fishing bounds must match the expanded lake surface")
 		return false
 	return true
+
+
+func _has_collision_shape(node: Node) -> bool:
+	if node is CollisionShape3D:
+		return true
+	for child in node.get_children():
+		if _has_collision_shape(child):
+			return true
+	return false
 
 
 func _fail(message: String) -> void:

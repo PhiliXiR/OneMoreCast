@@ -25,6 +25,8 @@ const ROWBOAT_NAME := "MooringRowboat"
 const WEST_BUOY_NAME := "MarkerBuoyWest"
 const EAST_BUOY_NAME := "MarkerBuoyEast"
 const FAR_BANK_NAME := "FarBankSilhouette"
+const MOUNTAIN_BACKDROP_NAME := "MountainBackdrop"
+const MOUNTAIN_BACKDROP_ANCHORS_NAME := "MountainBackdropViewAnchors"
 const PINE_TREE_LINE_NAME := "PineTreeLine"
 const PINE_TREE_LINE_VIEW_ANCHOR_NAME := "TreeLineViewAnchor"
 const SHORE_TREE_CLUSTERS_NAME := "ShoreTreeClusters"
@@ -40,6 +42,10 @@ const HOME_COTTAGE_EXTERIOR := preload("res://assets/props/home_cottage/home_cot
 const PINE_LANDMARK := preload("res://assets/foliage/home_water_pine_landmark.glb")
 const PINE_STANDARD := preload("res://assets/foliage/home_water_pine_standard.glb")
 const PINE_LEANING := preload("res://assets/foliage/home_water_pine_leaning.glb")
+const MOUNTAIN_NORTH_RIDGE := preload("res://assets/props/home_water/mountains/home_water_mountain_north_ridge.glb")
+const MOUNTAIN_EAST_SADDLE := preload("res://assets/props/home_water/mountains/home_water_mountain_east_saddle.glb")
+const MOUNTAIN_SOUTH_BENCH := preload("res://assets/props/home_water/mountains/home_water_mountain_south_bench.glb")
+const MOUNTAIN_WEST_SHOULDER := preload("res://assets/props/home_water/mountains/home_water_mountain_west_shoulder.glb")
 
 var _shore_collision_count := 0
 var _environment_elapsed := 0.0
@@ -58,6 +64,7 @@ func _ready() -> void:
 	_build_shore_tree_clusters()
 	_build_far_bank_dressing()
 	_build_far_horizon()
+	_build_mountain_backdrop()
 	_build_environmental_life()
 
 
@@ -122,6 +129,18 @@ func has_layered_far_horizon() -> bool:
 		and tree_line.get_node_or_null("StandardPine") != null \
 		and tree_line.get_node_or_null("LeaningPine") != null \
 		and horizon.get_node_or_null(WATERSHED_MARKER_NAME) != null
+
+
+func has_mountain_backdrop() -> bool:
+	var backdrop := get_node_or_null(MOUNTAIN_BACKDROP_NAME) as Node3D
+	var anchors := backdrop.get_node_or_null(MOUNTAIN_BACKDROP_ANCHORS_NAME) as Node3D if backdrop != null else null
+	if backdrop == null or anchors == null or backdrop.get_meta("interactive", true) or backdrop.get_child_count() < 9:
+		return false
+	for segment_name in ["NorthRidge", "EastSaddle", "SouthBench", "WestShoulder"]:
+		var segment := backdrop.get_node_or_null(segment_name) as Node3D
+		if segment == null or not segment.get_meta("approved_asset", false) or segment.get_meta("interactive", true) or String(segment.get_meta("compass", "")).is_empty():
+			return false
+	return anchors.get_child_count() == 4
 
 
 func has_clear_shore_tree_cluster_clearances() -> bool:
@@ -428,6 +447,60 @@ func _build_far_horizon() -> void:
 	_add_cylinder(marker, "WeatheredMast", Vector3.ZERO, 0.075, 2.15, Color("#665f4c"))
 	_add_box(marker, "SurveyCrossbar", Vector3(0.0, 0.72, 0.0), Vector3(0.86, 0.07, 0.07), Color("#665f4c"))
 	_add_disc(marker, "MarkerCap", Vector3(0.0, 1.12, 0.0), 0.16, Color("#8b7c54"))
+
+
+func _build_mountain_backdrop() -> void:
+	# The approved kit is scaled across a quiet, static basin outside the shore
+	# and Tree line. Its low saddles close diagonal sightlines without turning the
+	# Home Water into a mountain wall or adding a traversal boundary.
+	var backdrop := Node3D.new()
+	backdrop.name = MOUNTAIN_BACKDROP_NAME
+	backdrop.set_meta("interactive", false)
+	add_child(backdrop)
+
+	var basin_scale := Vector3(4.6, 0.92, 4.6)
+	_add_mountain(backdrop, "NorthRidge", MOUNTAIN_NORTH_RIDGE, basin_scale, 0.0, "north")
+	_add_mountain(backdrop, "EastSaddle", MOUNTAIN_EAST_SADDLE, basin_scale, 0.0, "east")
+	_add_mountain(backdrop, "SouthBench", MOUNTAIN_SOUTH_BENCH, basin_scale, 0.0, "south")
+	_add_mountain(backdrop, "WestShoulder", MOUNTAIN_WEST_SHOULDER, basin_scale, 0.0, "west")
+	# Four overlapping diagonal shoulders preserve the irregular all-around
+	# enclosure between the named compass segments.
+	_add_mountain(backdrop, "NorthEastShoulder", MOUNTAIN_NORTH_RIDGE, basin_scale, PI * 0.25, "north-east")
+	_add_mountain(backdrop, "SouthEastShoulder", MOUNTAIN_NORTH_RIDGE, basin_scale, PI * 0.75, "south-east")
+	_add_mountain(backdrop, "SouthWestShoulder", MOUNTAIN_NORTH_RIDGE, basin_scale, PI * 1.25, "south-west")
+	_add_mountain(backdrop, "NorthWestShoulder", MOUNTAIN_NORTH_RIDGE, basin_scale, PI * 1.75, "north-west")
+
+	var anchors := Node3D.new()
+	anchors.name = MOUNTAIN_BACKDROP_ANCHORS_NAME
+	anchors.set_meta("interactive", false)
+	backdrop.add_child(anchors)
+	_add_backdrop_view_anchor(anchors, "North", Vector3(0.0, 3.2, 46.0))
+	_add_backdrop_view_anchor(anchors, "East", Vector3(55.0, 3.0, 0.0))
+	_add_backdrop_view_anchor(anchors, "South", Vector3(0.0, 2.8, -46.0))
+	_add_backdrop_view_anchor(anchors, "West", Vector3(-55.0, 3.0, 0.0))
+
+
+func _add_mountain(parent: Node3D, node_name: String, packed_scene: PackedScene, scale: Vector3, yaw: float, compass: String) -> void:
+	var mountain := packed_scene.instantiate() as Node3D
+	if mountain == null:
+		push_error("Approved mountain backdrop asset could not load: %s" % node_name)
+		return
+	mountain.name = node_name
+	mountain.scale = scale
+	mountain.rotation.y = yaw
+	mountain.set_meta("interactive", false)
+	mountain.set_meta("approved_asset", true)
+	mountain.set_meta("asset_path", packed_scene.resource_path)
+	mountain.set_meta("compass", compass)
+	parent.add_child(mountain)
+
+
+func _add_backdrop_view_anchor(parent: Node3D, node_name: String, position: Vector3) -> void:
+	var anchor := Marker3D.new()
+	anchor.name = node_name
+	anchor.position = position
+	anchor.set_meta("interactive", false)
+	parent.add_child(anchor)
 
 
 func _add_pine(parent: Node3D, node_name: String, packed_scene: PackedScene, position: Vector3, scale: Vector3, yaw: float) -> void:
